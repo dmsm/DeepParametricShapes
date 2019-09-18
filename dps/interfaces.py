@@ -99,9 +99,9 @@ class VectorizerInterface(ModelInterface):
             templateloss += th.mean((loop.index_select(0, idxs) - template_loop.index_select(0, idxs)) ** 2)
         ret['templateloss'] = templateloss
 
-        templateloss_weight = 10*np.exp(-max(self._step-1500, 0)/500)
-        loss = chamferloss if self.args.chamfer == "optimize" \
-            else surfaceloss + 0.5*globalloss + 1e-2*alignmentloss + templateloss_weight*templateloss
+        w_template = self.args.w_template*np.exp(-max(self._step-1500, 0)/500)
+        loss = chamferloss if self.args.chamfer == "optimize" else self.args.w_surface*surfaceloss + \
+                self.args.w_global*globalloss + self.args.w_alignment*alignmentloss + w_template*templateloss
         ret['loss'] = loss
 
         return ret

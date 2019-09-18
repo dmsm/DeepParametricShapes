@@ -62,6 +62,10 @@ def main(args):
 
 if __name__ == '__main__':
     parser = ttools.BasicArgumentParser()
+    parser.add_argument("--w_surface", type=float, default=1)
+    parser.add_argument("--w_alignment", type=float, default=0.01)
+    parser.add_argument("--w_global", type=float, default=0.5)
+    parser.add_argument("--w_template", type=float, default=10)
     parser.add_argument("--eps", type=float, default=0.04)
     parser.add_argument("--max_stroke", type=float, default=0.04)
     parser.add_argument("--canvas_size", type=int, default=128)
