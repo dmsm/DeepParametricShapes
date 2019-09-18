@@ -9,9 +9,9 @@ from torch.utils.tensorboard import SummaryWriter
 
 import ttools
 
-from dps import callbacks, datasets, templates
-from dps.interfaces import VectorizerInterface
-from dps.models import CurvesModel
+from dps_2d import callbacks, datasets, templates
+from dps_2d.interfaces import VectorizerInterface
+from dps_2d.models import CurvesModel
 
 
 LOG = logging.getLogger(__name__)
