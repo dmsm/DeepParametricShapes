@@ -29,7 +29,7 @@ class VectorizerInterface(ModelInterface):
         params = params.view(params.size(0), self.args.n_primitives, -1)
 
         distance_fields = utils.compute_distance_fields(params, self.args.canvas_size,
-                                                        df=utils.distance_to_rounded_cuboids)
+                                                        df=utils.distance_to_rounded_cuboids).abs()
         distance_fields = distance_fields.min(1)[0]
         alignment_fields = utils.compute_alignment_fields(distance_fields)
         distance_fields = distance_fields[...,1:-1,1:-1,1:-1]
