@@ -27,6 +27,10 @@ class VectorizerInterface(ModelInterface):
 
         params = self.model(target_distance_fields[:,None])
         params = params.view(params.size(0), self.args.n_primitives, -1)
+        params = th.cat([0.3*th.sigmoid(params[...,:3])+0.05,
+                         params[...,3:6],
+                         0.8*th.sigmoid(params[...,6:10])+0.1,
+                         th.sigmoid(params[...,10:])], dim=-1)
 
         distance_fields = utils.compute_distance_fields(params, self.args.canvas_size,
                                                         df=utils.distance_to_rounded_cuboids).abs()

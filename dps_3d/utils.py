@@ -44,6 +44,7 @@ def distance_to_rounded_cuboids(source_points, params):
     params -- [b, 11]
     """
     b, q, T, r = th.split(params, [3, 4, 3, 1], dim=-1)
+    r = r*th.min(b, dim=-1, keepdims=True)[0]
     b = b - r
     q = q / th.sqrt(th.sum(q**2, dim=-1, keepdims=True) + 1e-6)
 
