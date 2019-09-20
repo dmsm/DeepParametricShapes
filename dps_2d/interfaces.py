@@ -38,7 +38,7 @@ class VectorizerInterface(ModelInterface):
         curves = out['curves']
         strokes = out['strokes'] * self.args.max_stroke
 
-        distance_fields = utils.compute_distance_fields(curves, n_loops, templates.topology, self.args.canvas_size)
+        distance_fields = utils.compute_distance_fields(curves, n_loops, templates.topology, self.args.canvas_size).abs()
         alignment_fields = utils.compute_alignment_fields(distance_fields.min(1)[0])
         distance_fields = distance_fields[...,1:-1,1:-1]
         distance_fields = th.max(distance_fields-strokes[...,None,None], th.zeros_like(distance_fields)).min(1)[0]
