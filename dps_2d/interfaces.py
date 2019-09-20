@@ -119,16 +119,28 @@ class VectorizerInterface(ModelInterface):
         return { k: v.item() for k, v in losses_dict.items() }
 
     def init_validation(self):
-        return { 'loss': 0, 'count': 0 }
+        losses = ['loss', 'globalloss', 'surfaceloss', 'alignmentloss', 'templateloss']
+        ret = { l: 0 for l in losses }
+        ret['count'] = 0
+        return ret
 
     def update_validation(self, batch, fwd_data, running_data):
-        n = batch['im'].shape[0]
+        n = batch['distance_fields'].shape[0]
         losses_dict = self._compute_lossses(batch, fwd_data)
         loss = losses_dict['loss']
+        globalloss = losses_dict['globalloss']
+        surfaceloss = losses_dict['surfaceloss']
+        alignmentloss = losses_dict['alignmentloss']
+        templateloss = losses_dict['templateloss']
         return {
             'loss': running_data['loss'] + loss.item()*n,
+            'globalloss': running_data['globalloss'] + globalloss.item()*n,
+            'surfaceloss': running_data['surfaceloss'] + surfaceloss.item()*n,
+            'alignmentloss': running_data['alignmentloss'] + alignmentloss.item()*n,
+            'templateloss': running_data['templateloss'] + alignmentloss.item()*n,
             'count': running_data['count'] + n
         }
 
     def finalize_validation(self, running_data):
-        return { 'loss': running_data['loss'] / running_data['count'] }
+        losses = ['loss', 'globalloss', 'surfaceloss', 'alignmentloss', 'templateloss']
+        return { l: running_data[l] / running_data['count'] for l in losses }

@@ -34,8 +34,7 @@ class FontsDataset(th.utils.data.Dataset):
                 np.load(os.path.join(self.root, 'distances', fname + '.npy'))[31:-31,31:-31].astype(np.float32))
         alignment_fields = utils.compute_alignment_fields(distance_fields)
         distance_fields = distance_fields[1:-1,1:-1]
-        occupancy_fields = utils.compute_occupancy_fields(th.max(distance_fields-0.01, th.zeros_like(distance_fields)),
-                                                          eps=1e-6)
+        occupancy_fields = utils.compute_occupancy_fields(th.max(distance_fields-0.01, th.zeros_like(distance_fields)))
         points = th.Tensor([])
         if self.args.chamfer is not None:
             points = th.from_numpy(np.load(os.path.join(self.root, 'points', fname + '.npy')).astype(np.float32))

@@ -37,8 +37,7 @@ class ShapenetDataset(th.utils.data.Dataset):
         alignment_fields = \
             alignment_fields[x:x+self.args.canvas_size,y:y+self.args.canvas_size,z:z+self.args.canvas_size]
 
-        occupancy_fields = utils.compute_occupancy_fields(th.max(distance_fields-0.02, th.zeros_like(distance_fields)),
-                                                          eps=1e-6)
+        occupancy_fields = utils.compute_occupancy_fields(th.max(distance_fields-0.02, th.zeros_like(distance_fields)))
 
         return {
             'fname': fname,
