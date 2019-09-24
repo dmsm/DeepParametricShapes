@@ -9,20 +9,28 @@ from . import utils, templates
 
 
 class VectorizerInterface(ModelInterface):
-    def __init__(self, model, args, cuda=True):
+    def __init__(self, model, simple_templates, lr, max_stroke, canvas_size, chamfer, n_samples_per_curve, w_surface,
+                 w_template, w_alignment, cuda=True):
         self.model = model
+        self.simple_templates = simple_templates
+        self.max_stroke = max_stroke
+        self.canvas_size = canvas_size
+        self.chamfer = chamfer
+        self.n_samples_per_curve = n_samples_per_curve
+        self.w_surface = w_surface
+        self.w_template = w_template
+        self.w_alignment = w_alignment
         self.cuda = cuda
-        self.args = args
         self._step = 0
 
-        self.curve_templates = th.Tensor(templates.simple_templates if args.simple_templates
+        self.curve_templates = th.Tensor(templates.simple_templates if self.simple_templates
                 else templates.letter_templates)
 
         if self.cuda:
             self.model.cuda()
             self.curve_templates = self.curve_templates.cuda()
 
-        self.optimizer = th.optim.Adam(self.model.parameters(), lr=self.args.lr)
+        self.optimizer = th.optim.Adam(self.model.parameters(), lr=lr)
 
     def forward(self, batch):
         im = batch['im']
@@ -36,9 +44,9 @@ class VectorizerInterface(ModelInterface):
         z = im.new_zeros(im.size(0), len(string.ascii_uppercase)).scatter_(1, letter_idx[:,None], 1)
         out = self.model(im, z)
         curves = out['curves']
-        strokes = out['strokes'] * self.args.max_stroke
+        strokes = out['strokes'] * self.max_stroke
 
-        distance_fields = utils.compute_distance_fields(curves, n_loops, templates.topology, self.args.canvas_size)
+        distance_fields = utils.compute_distance_fields(curves, n_loops, templates.topology, self.canvas_size)
         alignment_fields = utils.compute_alignment_fields(distance_fields.min(1)[0])
         distance_fields = distance_fields[...,1:-1,1:-1]
         distance_fields = th.max(distance_fields-strokes[...,None,None], th.zeros_like(distance_fields)).min(1)[0]
@@ -74,16 +82,14 @@ class VectorizerInterface(ModelInterface):
         occupancy_fields = fwd_data['occupancy_fields']
         curves = fwd_data['curves']
 
-        globalloss = th.mean((distance_fields-target_distance_fields)**2)
         surfaceloss = th.mean(target_occupancy_fields*distance_fields + target_distance_fields*occupancy_fields)
         alignmentloss = th.mean(1 - th.sum(target_alignment_fields*alignment_fields, dim=-1)**2)
         chamferloss = None
-        if self.args.chamfer is not None:
+        if self.chamfer is not None:
             chamferloss = utils.compute_chamfer_distance(
-                    utils.sample_points_from_curves(curves, n_loops, templates.topology, self.args.n_samples_per_curve),
+                    utils.sample_points_from_curves(curves, n_loops, templates.topology, self.n_samples_per_curve),
                     target_points)
             ret['chamferloss'] = chamferloss
-        ret['globalloss'] = globalloss
         ret['surfaceloss'] = surfaceloss
         ret['alignmentloss'] = alignmentloss
 
@@ -99,9 +105,9 @@ class VectorizerInterface(ModelInterface):
             templateloss += th.mean((loop.index_select(0, idxs) - template_loop.index_select(0, idxs)) ** 2)
         ret['templateloss'] = templateloss
 
-        w_template = self.args.w_template*np.exp(-max(self._step-1500, 0)/500)
-        loss = chamferloss if self.args.chamfer == "optimize" else self.args.w_surface*surfaceloss + \
-                self.args.w_global*globalloss + self.args.w_alignment*alignmentloss + w_template*templateloss
+        w_template = self.w_template*np.exp(-max(self._step-1500, 0)/500)
+        loss = chamferloss if self.chamfer == "optimize" else self.w_surface*surfaceloss + \
+                self.w_alignment*alignmentloss + w_template*templateloss
         ret['loss'] = loss
 
         return ret
@@ -119,7 +125,7 @@ class VectorizerInterface(ModelInterface):
         return { k: v.item() for k, v in losses_dict.items() }
 
     def init_validation(self):
-        losses = ['loss', 'globalloss', 'surfaceloss', 'alignmentloss', 'templateloss']
+        losses = ['loss', 'surfaceloss', 'alignmentloss', 'templateloss']
         ret = { l: 0 for l in losses }
         ret['count'] = 0
         return ret
@@ -128,13 +134,11 @@ class VectorizerInterface(ModelInterface):
         n = batch['distance_fields'].shape[0]
         losses_dict = self._compute_lossses(batch, fwd_data)
         loss = losses_dict['loss']
-        globalloss = losses_dict['globalloss']
         surfaceloss = losses_dict['surfaceloss']
         alignmentloss = losses_dict['alignmentloss']
         templateloss = losses_dict['templateloss']
         return {
             'loss': running_data['loss'] + loss.item()*n,
-            'globalloss': running_data['globalloss'] + globalloss.item()*n,
             'surfaceloss': running_data['surfaceloss'] + surfaceloss.item()*n,
             'alignmentloss': running_data['alignmentloss'] + alignmentloss.item()*n,
             'templateloss': running_data['templateloss'] + alignmentloss.item()*n,
@@ -142,5 +146,5 @@ class VectorizerInterface(ModelInterface):
         }
 
     def finalize_validation(self, running_data):
-        losses = ['loss', 'globalloss', 'surfaceloss', 'alignmentloss', 'templateloss']
+        losses = ['loss', 'surfaceloss', 'alignmentloss', 'templateloss']
         return { l: running_data[l] / running_data['count'] for l in losses }

@@ -26,12 +26,12 @@ def _worker_init_fn(worker_id):
 
 
 def main(args):
-    data = datasets.ShapenetDataset(args)
+    data = datasets.ShapenetDataset(args.root, args.canvas_size)
     dataloader = DataLoader(data, batch_size=args.bs, num_workers=args.num_worker_threads,
                             worker_init_fn=_worker_init_fn, shuffle=True, drop_last=True)
     LOG.info(data)
 
-    val_data = datasets.ShapenetDataset(args, val=True)
+    val_data = datasets.ShapenetDataset(args.root, args.canvas_size, val=True)
     val_dataloader = DataLoader(val_data)
 
     model = PrimsModel(output_dim=11*args.n_primitives)
@@ -39,9 +39,9 @@ def main(args):
     checkpointer = ttools.Checkpointer(args.checkpoint_dir, model)
     checkpointer.load_latest()
 
-    interface = VectorizerInterface(model, args, cuda=args.cuda)
+    interface = VectorizerInterface(model, lr, n_primitives, canvas_size, w_surface, w_alignment, cuda=args.cuda)
 
-    keys = ['loss', 'surfaceloss', 'globalloss', 'alignmentloss']
+    keys = ['loss', 'surfaceloss', 'alignmentloss']
 
     writer = SummaryWriter(os.path.join(args.checkpoint_dir, 'summaries',
                                         datetime.datetime.now().strftime('train-%m%d%y-%H%M%S')), flush_secs=1)
@@ -60,7 +60,6 @@ if __name__ == '__main__':
     parser = ttools.BasicArgumentParser()
     parser.add_argument("--w_surface", type=float, default=1)
     parser.add_argument("--w_alignment", type=float, default=0.01)
-    parser.add_argument("--w_global", type=float, default=0.5)
     parser.add_argument("--eps", type=float, default=0.03)
     parser.add_argument("--canvas_size", type=int, default=64)
     parser.add_argument("--n_primitives", type=int, default=16)

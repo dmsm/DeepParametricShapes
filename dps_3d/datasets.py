@@ -10,9 +10,9 @@ from . import utils
 
 
 class ShapenetDataset(th.utils.data.Dataset):
-    def __init__(self, args, val=False):
-        self.args = args
-        self.root = args.data
+    def __init__(self, root, canvas_size, val=False):
+        self.root = root
+        self.canvas_size = canvas_size
         self.files = sorted([f for f in os.listdir(self.root) if os.path.isdir(os.path.join(self.root, f))])
         cutoff = int(0.9*len(self.files))
         if val:
@@ -32,10 +32,10 @@ class ShapenetDataset(th.utils.data.Dataset):
         alignment_fields = th.from_numpy(np.load(os.path.join(self.root, fname, 'af.npy')).astype(np.float32))
 
         # jitter
-        x, y, z = np.random.randint(distance_fields.size(0)-self.args.canvas_size+1, size=3)
-        distance_fields = distance_fields[x:x+self.args.canvas_size,y:y+self.args.canvas_size,z:z+self.args.canvas_size]
+        x, y, z = np.random.randint(distance_fields.size(0)-self.canvas_size+1, size=3)
+        distance_fields = distance_fields[x:x+self.canvas_size,y:y+self.canvas_size,z:z+self.canvas_size]
         alignment_fields = \
-            alignment_fields[x:x+self.args.canvas_size,y:y+self.args.canvas_size,z:z+self.args.canvas_size]
+            alignment_fields[x:x+self.canvas_size,y:y+self.canvas_size,z:z+self.canvas_size]
 
         occupancy_fields = utils.compute_occupancy_fields(th.max(distance_fields-0.02, th.zeros_like(distance_fields)))
 

@@ -26,12 +26,12 @@ def _worker_init_fn(worker_id):
 
 
 def main(args):
-    data = datasets.FontsDataset(args)
+    data = datasets.FontsDataset(args.root, args.chamfer, args.n_samples_per_curve)
     dataloader = DataLoader(data, batch_size=args.bs, num_workers=args.num_worker_threads,
                             worker_init_fn=_worker_init_fn, shuffle=True, drop_last=True)
     LOG.info(data)
 
-    val_data = datasets.FontsDataset(args, val=True)
+    val_data = datasets.FontsDataset(args.root, args.chamfer. args.n_samples_per_curve, val=True)
     val_dataloader = DataLoader(val_data)
 
     model = CurvesModel(n_curves=sum(templates.topology))
@@ -39,9 +39,11 @@ def main(args):
     checkpointer = ttools.Checkpointer(args.checkpoint_dir, model)
     checkpointer.load_latest()
 
-    interface = VectorizerInterface(model, args, cuda=args.cuda)
+    interface = VectorizerInterface(model, args.simple_templates, args.lr, args.max_stroke, args.canvas_size,
+                                    args.chamfer, args.n_samples_per_curve, args.w_surface, args.w_template,
+                                    args.w_alignment, cuda=args.cuda)
 
-    keys = ['loss', 'surfaceloss', 'globalloss', 'alignmentloss', 'templateloss']
+    keys = ['loss', 'surfaceloss', 'alignmentloss', 'templateloss']
     if args.chamfer is not None:
         keys.append('chamferloss')
 
@@ -64,7 +66,6 @@ if __name__ == '__main__':
     parser = ttools.BasicArgumentParser()
     parser.add_argument("--w_surface", type=float, default=1)
     parser.add_argument("--w_alignment", type=float, default=0.01)
-    parser.add_argument("--w_global", type=float, default=0.5)
     parser.add_argument("--w_template", type=float, default=10)
     parser.add_argument("--eps", type=float, default=0.04)
     parser.add_argument("--max_stroke", type=float, default=0.04)

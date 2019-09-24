@@ -10,9 +10,10 @@ from . import utils, templates
 
 
 class FontsDataset(th.utils.data.Dataset):
-    def __init__(self, args, val=False):
-        self.args = args
-        self.root = args.data
+    def __init__(self, root, chamfer, n_samples_per_curve, val=False):
+        self.root = root
+        self.chamfer = chamfer
+        self.n_samples_per_curve
         self.files = sorted([f[:-4] for f in os.listdir(os.path.join(self.root, 'pngs')) if f.endswith('.png')])
         cutoff = int(0.9*len(self.files))
         if val:
