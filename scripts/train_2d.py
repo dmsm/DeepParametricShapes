@@ -26,12 +26,12 @@ def _worker_init_fn(worker_id):
 
 
 def main(args):
-    data = datasets.FontsDataset(args.root, args.chamfer, args.n_samples_per_curve)
+    data = datasets.FontsDataset(args.data, args.chamfer, args.n_samples_per_curve)
     dataloader = DataLoader(data, batch_size=args.bs, num_workers=args.num_worker_threads,
                             worker_init_fn=_worker_init_fn, shuffle=True, drop_last=True)
     LOG.info(data)
 
-    val_data = datasets.FontsDataset(args.root, args.chamfer. args.n_samples_per_curve, val=True)
+    val_data = datasets.FontsDataset(args.data, args.chamfer. args.n_samples_per_curve, val=True)
     val_dataloader = DataLoader(val_data)
 
     model = CurvesModel(n_curves=sum(templates.topology))
