@@ -13,7 +13,7 @@ class FontsDataset(th.utils.data.Dataset):
     def __init__(self, root, chamfer, n_samples_per_curve, val=False):
         self.root = root
         self.chamfer = chamfer
-        self.n_samples_per_curve
+        self.n_samples_per_curve = n_samples_per_curve
         self.files = sorted([f[:-4] for f in os.listdir(os.path.join(self.root, 'pngs')) if f.endswith('.png')])
         cutoff = int(0.9*len(self.files))
         if val:
@@ -37,9 +37,9 @@ class FontsDataset(th.utils.data.Dataset):
         distance_fields = distance_fields[1:-1,1:-1]
         occupancy_fields = utils.compute_occupancy_fields(th.max(distance_fields-0.01, th.zeros_like(distance_fields)))
         points = th.Tensor([])
-        if self.args.chamfer is not None:
+        if self.chamfer is not None:
             points = th.from_numpy(np.load(os.path.join(self.root, 'points', fname + '.npy')).astype(np.float32))
-            points = points[:self.args.n_samples_per_curve*sum(templates.topology)]
+            points = points[:self.n_samples_per_curve*sum(templates.topology)]
 
         return {
             'fname': fname,

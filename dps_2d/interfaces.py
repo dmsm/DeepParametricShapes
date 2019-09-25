@@ -95,7 +95,7 @@ class VectorizerInterface(ModelInterface):
 
         templateloss = 0
         b = curves.size(0)
-        curve_templates = self.curve_templates.index_select(0, letter_idx)
+        curve_templates = self.curve_templates.index_select(0, n_loops-1 if self.simple_templates else letter_idx)
         template_loops = th.split(curve_templates.view(b, -1, 2), [2*n for n in templates.topology], dim=1)
         loops = th.split(curves.view(b, -1, 2), [2*n for n in templates.topology], dim=1)
         for i, (template_loop, loop) in enumerate(zip(template_loops, loops)):
@@ -125,6 +125,7 @@ class VectorizerInterface(ModelInterface):
         return { k: v.item() for k, v in losses_dict.items() }
 
     def init_validation(self):
+        self.model.eval()
         losses = ['loss', 'surfaceloss', 'alignmentloss', 'templateloss']
         ret = { l: 0 for l in losses }
         ret['count'] = 0
@@ -147,4 +148,6 @@ class VectorizerInterface(ModelInterface):
 
     def finalize_validation(self, running_data):
         losses = ['loss', 'surfaceloss', 'alignmentloss', 'templateloss']
-        return { l: running_data[l] / running_data['count'] for l in losses }
+        ret = { l: running_data[l] / running_data['count'] for l in losses }
+        self.model.train()
+        return ret

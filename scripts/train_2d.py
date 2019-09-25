@@ -31,7 +31,7 @@ def main(args):
                             worker_init_fn=_worker_init_fn, shuffle=True, drop_last=True)
     LOG.info(data)
 
-    val_data = datasets.FontsDataset(args.data, args.chamfer. args.n_samples_per_curve, val=True)
+    val_data = datasets.FontsDataset(args.data, args.chamfer, args.n_samples_per_curve, val=True)
     val_dataloader = DataLoader(val_data)
 
     model = CurvesModel(n_curves=sum(templates.topology))
