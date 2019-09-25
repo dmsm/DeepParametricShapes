@@ -142,7 +142,7 @@ class VectorizerInterface(ModelInterface):
             'loss': running_data['loss'] + loss.item()*n,
             'surfaceloss': running_data['surfaceloss'] + surfaceloss.item()*n,
             'alignmentloss': running_data['alignmentloss'] + alignmentloss.item()*n,
-            'templateloss': running_data['templateloss'] + alignmentloss.item()*n,
+            'templateloss': running_data['templateloss'] + templateloss.item()*n,
             'count': running_data['count'] + n
         }
 
