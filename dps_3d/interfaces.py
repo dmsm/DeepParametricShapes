@@ -28,7 +28,7 @@ class VectorizerInterface(ModelInterface):
         if self.cuda:
             points = points.cuda()
 
-        params = self.model(points)
+        params = self.model(points.permute(0, 2, 1))
         params = params.view(params.size(0), self.n_primitives, -1)
         params = th.cat([0.3*th.sigmoid(params[...,:3])+0.05,
                          params[...,3:6],

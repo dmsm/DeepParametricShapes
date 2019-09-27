@@ -12,7 +12,7 @@ class PrimsModel(nn.Module):
     def __init__(self, output_dim):
         super(PrimsModel, self).__init__()
 
-        self.encoder = dgcnn.DGCNN() # ResNet(BasicBlock, [2, 2, 2, 2], num_classes=256)
+        self.encoder = dgcnn.PointNet() # ResNet(BasicBlock, [2, 2, 2, 2], num_classes=256)
         self.decoder = nn.Sequential(
                 nn.ReLU(),
                 nn.Linear(256, 128),
