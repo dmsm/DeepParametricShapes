@@ -24,11 +24,11 @@ class VectorizerInterface(ModelInterface):
         self.optimizer = th.optim.Adam(self.model.parameters(), lr=lr)
 
     def forward(self, batch):
-        target_distance_fields = batch['distance_fields']
+        points = batch['points']
         if self.cuda:
-            target_distance_fields = target_distance_fields.cuda()
+            points = points.cuda()
 
-        params = self.model(target_distance_fields[:,None])
+        params = self.model(points)
         params = params.view(params.size(0), self.n_primitives, -1)
         params = th.cat([0.3*th.sigmoid(params[...,:3])+0.05,
                          params[...,3:6],

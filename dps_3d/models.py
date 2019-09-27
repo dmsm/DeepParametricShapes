@@ -5,13 +5,15 @@ import torch.nn as nn
 
 from torchvision.models.resnet import BasicBlock
 
+from . import dgcnn
+
 
 class PrimsModel(nn.Module):
     def __init__(self, output_dim):
         super(PrimsModel, self).__init__()
 
-        self.resnet18 = ResNet(BasicBlock, [2, 2, 2, 2], num_classes=256)
-        self.out = nn.Sequential(
+        self.encoder = dgcnn.DGCNN() # ResNet(BasicBlock, [2, 2, 2, 2], num_classes=256)
+        self.decoder = nn.Sequential(
                 nn.ReLU(),
                 nn.Linear(256, 128),
                 nn.ReLU(),
@@ -19,12 +21,12 @@ class PrimsModel(nn.Module):
             )
 
     def forward(self, x):
-        code = self.resnet18(x)
-        return self.out(code)
+        code = self.encoder(x)
+        return self.decoder(code)
 
 
 class ResNet(nn.Module):
-    # modification of torchvision.models.resnet.ResNet to support z conditioning and single channel input
+    # 3D modification of torchvision.models.resnet.ResNet
 
     def __init__(self, block, layers, num_classes=1000, groups=1, width_per_group=64):
         super(ResNet, self).__init__()
