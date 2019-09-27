@@ -77,7 +77,7 @@ class PointNet(nn.Module):
         x = F.relu(self.bn3(self.conv3(x)))
         x = F.relu(self.bn4(self.conv4(x)))
         x = F.relu(self.bn5(self.conv5(x)))
-        x = F.adaptive_max_pool1d(x, 1).squeeze()
+        x = F.adaptive_max_pool1d(x, 1).squeeze(-1)
         x = F.relu(self.bn6(self.linear1(x)))
         x = self.dp1(x)
         x = self.linear2(x)
