@@ -86,6 +86,7 @@ class VectorizerInterface(ModelInterface):
         return { k: v.item() for k, v in losses_dict.items() }
 
     def init_validation(self):
+        self.model.eval()
         losses = ['loss', 'surfaceloss', 'alignmentloss']
         ret = { l: 0 for l in losses }
         ret['count'] = 0
@@ -106,4 +107,6 @@ class VectorizerInterface(ModelInterface):
 
     def finalize_validation(self, running_data):
         losses = ['loss', 'surfaceloss', 'alignmentloss']
-        return { l: running_data[l] / running_data['count'] for l in losses }
+        ret = { l: running_data[l] / running_data['count'] for l in losses }
+        self.model.train()
+        return ret
