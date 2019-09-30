@@ -41,9 +41,9 @@ def main(args):
 
     interface = VectorizerInterface(model, args.simple_templates, args.lr, args.max_stroke, args.canvas_size,
                                     args.chamfer, args.n_samples_per_curve, args.w_surface, args.w_template,
-                                    args.w_alignment, cuda=args.cuda)
+                                    args.w_alignment, args.w_overlap, cuda=args.cuda)
 
-    keys = ['loss', 'surfaceloss', 'alignmentloss', 'templateloss']
+    keys = ['loss', 'surfaceloss', 'alignmentloss', 'templateloss', 'overlaploss']
     if args.chamfer is not None:
         keys.append('chamferloss')
 
@@ -57,6 +57,7 @@ def main(args):
                                                                      val_writer=val_writer, frequency=5))
     trainer.add_callback(callbacks.InputImageCallback(writer=writer, val_writer=val_writer, frequency=25))
     trainer.add_callback(callbacks.RenderingCallback(writer=writer, val_writer=val_writer, frequency=25))
+    trainer.add_callback(callbacks.OverlapCallback(writer=writer, val_writer=val_writer, frequency=25))
     trainer.add_callback(ttools.callbacks.ProgressBarCallback(keys=keys))
     trainer.add_callback(ttools.callbacks.CheckpointingCallback(checkpointer, max_files=1))
     trainer.train(dataloader, num_epochs=args.num_epochs, val_dataloader=val_dataloader)
@@ -67,6 +68,7 @@ if __name__ == '__main__':
     parser.add_argument("--w_surface", type=float, default=1)
     parser.add_argument("--w_alignment", type=float, default=0.01)
     parser.add_argument("--w_template", type=float, default=10)
+    parser.add_argument("--w_overlap", type=float, default=0.05)
     parser.add_argument("--eps", type=float, default=0.04)
     parser.add_argument("--max_stroke", type=float, default=0.04)
     parser.add_argument("--canvas_size", type=int, default=128)
