@@ -1,13 +1,13 @@
 import cairo
 from freetype import *
 import numpy as np
+import torch as th
 from skimage.util.shape import view_as_windows
 from svgpathtools import Line, Path, QuadraticBezier, CubicBezier, paths2svg
 
-from opt import Opt
+from . import templates, utils
 
 
-opt = Opt()
 cmap = [tuple(int(x) for x in c.split('.')) for c in
                 ['255.187.120', '255.127.14', '174.199.232', '44.160.44', '31.119.180', '255.152.150',
                  '23.190.207', '197.176.213', '152.223.138', '148.103.189', '247.182.210',
@@ -22,22 +22,22 @@ def poly_bezier_to_bezier(x):
 
 def apply_templates(curves):
     expanded_curves = []
-    splits = [4*n_curves for n_curves in opt.template_topology]
-    loops = np.split(curves[:4*sum(opt.template_topology)], [sum(splits[:i]) for i in range(1, len(splits))])
+    splits = [4*n_curves for n_curves in templates.topology]
+    loops = np.split(curves[:4*sum(templates.topology)], [sum(splits[:i]) for i in range(1, len(splits))])
     expanded_loops = []
-    for loop, n_curves in zip(loops, opt.template_topology):
+    for loop, n_curves in zip(loops, templates.topology):
         expanded_loops.append(poly_bezier_to_bezier(np.concatenate([loop, loop[:2]], axis=0)))
     return np.concatenate(expanded_loops, axis=0)
 
 
-def draw_vec_fig(curves_set, template_indexes, letters, fonts, filename, opt, rows=2, colors=None, marked_verts=[]):
+def draw_vec_fig(curves_set, template_indexes, letters, fonts, filename, canvas_size, rows=2, colors=None, marked_verts=[]):
     n = len(curves_set) if curves_set is not None else len(fonts)
     if n > 1: w, h = n//rows, rows
     else: w, h = 1, 1
 
     surface = cairo.PDFSurface(filename, w*128, h*128)
     ctx = cairo.Context(surface)
-    ctx.scale(opt.img_size, opt.img_size)
+    ctx.scale(canvas_size, canvas_size)
     ctx.rectangle(0, 0, w, h)
     ctx.set_source_rgb(1, 1, 1)
     ctx.fill()
@@ -58,13 +58,13 @@ def draw_vec_fig(curves_set, template_indexes, letters, fonts, filename, opt, ro
 
     surface.finish()
 
-def draw_gan_fig(images, curves_set, template_indexes, filename):
+def draw_gan_fig(images, curves_set, template_indexes, filename, canvas_size):
     n = len(curves_set)
     w, h = 3, n
 
     surface = cairo.PDFSurface(filename, w*128, h*128)
     ctx = cairo.Context(surface)
-    ctx.scale(opt.img_size, opt.img_size)
+    ctx.scale(canvas_size, canvas_size)
     ctx.rectangle(0, 0, w, h)
     ctx.set_source_rgb(1, 1, 1)
     ctx.fill()
@@ -83,7 +83,7 @@ def draw_gan_fig(images, curves_set, template_indexes, filename):
             curves = curves_set[c]
             template_index = template_indexes[c]
             curves = apply_templates(curves).squeeze()
-            curves = curves.reshape([-1, 6])[:opt.template_lengths[template_index]]
+            curves = curves.reshape([-1, 6])[:sum(templates.topologies[:template_index+1])]
 
             x = 1
             ctx.set_line_width(0.04)
@@ -117,7 +117,7 @@ def draw_gan_fig(images, curves_set, template_indexes, filename):
 
             x = 2
             ctx.set_source_rgb(0, 0, 0)
-            template_topologies = opt.template_topologies[template_index]
+            template_topologies = templates.topology[template_index]
             if len(template_topologies) == 1:
                 loops = [curves[:template_topologies[0]]]
             else:
@@ -139,15 +139,15 @@ def draw_gan_fig(images, curves_set, template_indexes, filename):
     surface.finish()
 
 
-def draw_curves(curves, template_index, ctx, offset=(0, 0), marked_verts=[]):
+def draw_curves(curves, n_loops, ctx, offset=(0, 0), marked_verts=[]):
     x, y = offset
-    curves = apply_templates(curves).squeeze()
-    curves = curves.reshape([-1, 6])[:opt.template_lengths[template_index]]
+    curves = th.cat(utils.unroll_curves(curves[None], templates.topology), dim=1).squeeze(0)
+    curves = curves[:sum(templates.topology[:n_loops])]
 
     ctx.set_line_width(0.04)
     ctx.set_source_rgb(0.1, 0.1, 0.1)
     for i in range(len(curves)):
-        a, b, c = np.split(curves[i], 3)
+        a, b, c = list(curves[i])
         ctx.move_to(a[0] + x, a[1] + y)
         ctx.curve_to(a[0] * 1/3 + b[0] * 2/3 + x, a[1] * 1/3 + b[1] * 2/3 + y,
                      b[0] * 2/3 + c[0] * 1/3 + x, b[1] * 2/3 + c[1] * 1/3 + y,
@@ -157,7 +157,7 @@ def draw_curves(curves, template_index, ctx, offset=(0, 0), marked_verts=[]):
     ctx.set_line_width(0.02)
     for i in range(len(curves)):
         color = (x/255 for x in cmap[i % len(cmap)])
-        a, b, c = np.split(curves[i], 3)
+        a, b, c = curves[i]
         ctx.move_to(a[0] + x, a[1] + y)
         ctx.set_source_rgb(*color)
         ctx.curve_to(a[0] * 1/3 + b[0] * 2/3 + x, a[1] * 1/3 + b[1] * 2/3 + y,
@@ -165,17 +165,15 @@ def draw_curves(curves, template_index, ctx, offset=(0, 0), marked_verts=[]):
                      c[0] + x, c[1] + y)
         ctx.stroke()
 
-    v = 0
     for i in range(len(curves)):
         color = (x/255 for x in cmap[i % len(cmap)])
-        a, b, c = np.split(curves[i], 3)
+        a, b, c = curves[i]
         if tuple(a) in marked_verts:
             ctx.set_source_rgb(214/255, 39/255, 40/255)
         else:
             ctx.set_source_rgb(0, 0, 0)
         ctx.arc(a[0] + x, a[1] + y, 0.02, 0, 2*np.pi)
         ctx.fill()
-        v += 3
 
 
 def draw_glyph(font, char, ctx, offset=(0, 0), color=(0.6, 0.6, 0.6)):

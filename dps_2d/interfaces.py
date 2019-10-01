@@ -2,7 +2,6 @@ import string
 
 import numpy as np
 import torch as th
-
 from ttools.training import ModelInterface
 
 from . import utils, templates
@@ -45,72 +44,83 @@ class VectorizerInterface(ModelInterface):
         z = im.new_zeros(im.size(0), len(string.ascii_uppercase)).scatter_(1, letter_idx[:,None], 1)
         out = self.model(im, z)
         curves = out['curves']
-        strokes = out['strokes'] * self.max_stroke
 
-        distance_fields = utils.compute_distance_fields(curves, n_loops, templates.topology, self.canvas_size)
-        alignment_fields = utils.compute_alignment_fields(distance_fields.min(1)[0])
-        distance_fields = distance_fields[...,1:-1,1:-1]
-        distance_fields = th.max(distance_fields-strokes[...,None,None], th.zeros_like(distance_fields))
-        occupancy_fields = utils.compute_occupancy_fields(distance_fields)
+        if not self.chamfer:
+            strokes = out['strokes'] * self.max_stroke
+            distance_fields = utils.compute_distance_fields(curves, n_loops, templates.topology, self.canvas_size)
+            alignment_fields = utils.compute_alignment_fields(distance_fields.min(1)[0])
+            distance_fields = distance_fields[...,1:-1,1:-1]
+            distance_fields = th.max(distance_fields-strokes[...,None,None], th.zeros_like(distance_fields))
+            occupancy_fields = utils.compute_occupancy_fields(distance_fields)
 
-        endpoints = curves.view(curves.size(0), -1, 2)[:,::2]
-        grid_pts = th.stack(th.meshgrid([th.linspace(0, 1, self.canvas_size)]*2),
-                            dim=-1).permute(1, 0, 2).reshape(-1, 2).type(curves.dtype)
-        if curves.is_cuda:
-            grid_pts = grid_pts.cuda()
-        endpoint_fields = th.sqrt(th.sum((endpoints[:,:,None] - grid_pts)**2, dim=-1) + 1e-6)
-        endpoint_fields = endpoint_fields.min(1)[0].view(-1, self.canvas_size, self.canvas_size)
-        endpoint_fields = th.max(endpoint_fields-self.max_stroke, th.zeros_like(endpoint_fields))
-        endpoint_fields = utils.compute_occupancy_fields(endpoint_fields)
+            endpoints = curves.view(curves.size(0), -1, 2)[:,::2]
+            grid_pts = th.stack(th.meshgrid([th.linspace(0, 1, self.canvas_size)]*2),
+                                dim=-1).permute(1, 0, 2).reshape(-1, 2).type(curves.dtype)
+            if curves.is_cuda:
+                grid_pts = grid_pts.cuda()
+            endpoint_fields = th.sqrt(th.sum((endpoints[:,:,None] - grid_pts)**2, dim=-1) + 1e-6)
+            endpoint_fields = endpoint_fields.min(1)[0].view(-1, self.canvas_size, self.canvas_size)
+            endpoint_fields = th.max(endpoint_fields-self.max_stroke, th.zeros_like(endpoint_fields))
+            endpoint_fields = utils.compute_occupancy_fields(endpoint_fields)
 
-        overlap_fields = occupancy_fields.sum(1)
-        overlap_fields = th.max(overlap_fields-1-endpoint_fields, th.zeros_like(overlap_fields))
+            overlap_fields = occupancy_fields.sum(1)
+            overlap_fields = th.max(overlap_fields-1-endpoint_fields, th.zeros_like(overlap_fields))
 
-        distance_fields = distance_fields.min(1)[0]
-        occupancy_fields = occupancy_fields.max(1)[0]
-
-        return {
-            'curves': curves,
-            'distance_fields': distance_fields,
-            'alignment_fields': alignment_fields,
-            'occupancy_fields': occupancy_fields,
-            'overlap_fields': overlap_fields
-        }
+            distance_fields = distance_fields.min(1)[0]
+            occupancy_fields = occupancy_fields.max(1)[0]
+            ret = {
+                'curves': curves,
+                'distance_fields': distance_fields,
+                'alignment_fields': alignment_fields,
+                'occupancy_fields': occupancy_fields,
+                'overlap_fields': overlap_fields
+            }
+        else:
+            ret = { 'curves': curves }
+        return ret
 
     def _compute_lossses(self, batch, fwd_data):
         ret = {}
 
-        target_distance_fields = batch['distance_fields']
-        target_alignment_fields = batch['alignment_fields']
-        target_occupancy_fields = batch['occupancy_fields']
-        target_points = batch['points']
+        if not self.chamfer:
+            target_distance_fields = batch['distance_fields']
+            target_alignment_fields = batch['alignment_fields']
+            target_occupancy_fields = batch['occupancy_fields']
+        else:
+            target_points = batch['points']
         letter_idx = batch['letter_idx']
         n_loops = batch['n_loops']
         if self.cuda:
-            target_distance_fields = target_distance_fields.cuda()
-            target_alignment_fields = target_alignment_fields.cuda()
-            target_occupancy_fields = target_occupancy_fields.cuda()
+            if not self.chamfer:
+                target_distance_fields = target_distance_fields.cuda()
+                target_alignment_fields = target_alignment_fields.cuda()
+                target_occupancy_fields = target_occupancy_fields.cuda()
+            else:
+                target_points = target_points.cuda()
             letter_idx = letter_idx.cuda()
             n_loops = n_loops.cuda()
-            if target_points.numel() > 0:
-                target_points = target_points.cuda()
 
-        distance_fields = fwd_data['distance_fields']
-        alignment_fields = fwd_data['alignment_fields']
-        occupancy_fields = fwd_data['occupancy_fields']
-        overlap_fields = fwd_data['overlap_fields']
+        loss = 0
         curves = fwd_data['curves']
+        if not self.chamfer:
+            distance_fields = fwd_data['distance_fields']
+            alignment_fields = fwd_data['alignment_fields']
+            occupancy_fields = fwd_data['occupancy_fields']
+            overlap_fields = fwd_data['overlap_fields']
 
-        surfaceloss = th.mean(target_occupancy_fields*distance_fields + target_distance_fields*occupancy_fields)
-        alignmentloss = th.mean(1 - th.sum(target_alignment_fields*alignment_fields, dim=-1)**2)
-        chamferloss = None
-        if self.chamfer is not None:
+            surfaceloss = th.mean(target_occupancy_fields*distance_fields + target_distance_fields*occupancy_fields)
+            alignmentloss = th.mean(1 - th.sum(target_alignment_fields*alignment_fields, dim=-1)**2)
+            ret['surfaceloss'] = surfaceloss
+            ret['alignmentloss'] = alignmentloss
+            overlaploss = overlap_fields.mean()
+            ret['overlaploss'] = overlaploss
+            loss += self.w_surface*surfaceloss + self.w_alignment*alignmentloss + self.w_overlap*overlaploss
+        else:
             chamferloss = utils.compute_chamfer_distance(
                     utils.sample_points_from_curves(curves, n_loops, templates.topology, self.n_samples_per_curve),
                     target_points)
             ret['chamferloss'] = chamferloss
-        ret['surfaceloss'] = surfaceloss
-        ret['alignmentloss'] = alignmentloss
+            loss += chamferloss
 
         templateloss = 0
         b = curves.size(0)
@@ -124,13 +134,8 @@ class VectorizerInterface(ModelInterface):
             templateloss += th.mean((loop.index_select(0, idxs) - template_loop.index_select(0, idxs)) ** 2)
         ret['templateloss'] = templateloss
 
-        overlaploss = overlap_fields.mean()
-        ret['overlaploss'] = overlaploss
-
-        loss = chamferloss if self.chamfer == 'optimize' else self.w_surface*surfaceloss + \
-               self.w_alignment*alignmentloss
         w_template = self.w_template*np.exp(-max(self._step-1500, 0)/500)
-        loss += w_template*templateloss + self.w_overlap*overlaploss
+        loss += w_template*templateloss
         ret['loss'] = loss
 
         return ret
@@ -149,38 +154,42 @@ class VectorizerInterface(ModelInterface):
 
     def init_validation(self):
         self.model.eval()
-        losses = ['loss', 'surfaceloss', 'alignmentloss', 'templateloss', 'overlaploss']
-        if self.chamfer is not None:
-            losses += 'chamferloss'
+        losses = ['loss', 'chamferloss', 'templateloss'] if self.chamfer \
+            else ['loss', 'surfaceloss', 'alignmentloss', 'templateloss', 'overlaploss']
         ret = { l: 0 for l in losses }
         ret['count'] = 0
         return ret
 
     def update_validation(self, batch, fwd_data, running_data):
-        n = batch['distance_fields'].shape[0]
+        n = batch['im'].shape[0]
         losses_dict = self._compute_lossses(batch, fwd_data)
         loss = losses_dict['loss']
-        surfaceloss = losses_dict['surfaceloss']
-        alignmentloss = losses_dict['alignmentloss']
         templateloss = losses_dict['templateloss']
-        overlaploss = losses_dict['overlaploss']
-        ret = {
-            'loss': running_data['loss'] + loss.item()*n,
-            'surfaceloss': running_data['surfaceloss'] + surfaceloss.item()*n,
-            'alignmentloss': running_data['alignmentloss'] + alignmentloss.item()*n,
-            'templateloss': running_data['templateloss'] + templateloss.item()*n,
-            'overlaploss': running_data['overlaploss'] + overlaploss.item()*n,
-            'count': running_data['count'] + n
-        }
-        if self.chamfer is not None:
+        if not self.chamfer:
+            surfaceloss = losses_dict['surfaceloss']
+            alignmentloss = losses_dict['alignmentloss']
+            overlaploss = losses_dict['overlaploss']
+            ret = {
+                'loss': running_data['loss'] + loss.item()*n,
+                'surfaceloss': running_data['surfaceloss'] + surfaceloss.item()*n,
+                'alignmentloss': running_data['alignmentloss'] + alignmentloss.item()*n,
+                'templateloss': running_data['templateloss'] + templateloss.item()*n,
+                'overlaploss': running_data['overlaploss'] + overlaploss.item()*n,
+                'count': running_data['count'] + n
+            }
+        else:
             chamferloss = losses_dict['chamferloss']
-            ret['chamferloss'] = running_data['chamferloss'] + chamferloss.item()*n
+            ret = {
+                'loss': running_data['loss'] + loss.item()*n,
+                'templateloss': running_data['templateloss'] + templateloss.item()*n,
+                'chamferloss': running_data['chamferloss'] + chamferloss.item()*n,
+                'count': running_data['count'] + n
+            }
         return ret
 
     def finalize_validation(self, running_data):
-        losses = ['loss', 'surfaceloss', 'alignmentloss', 'templateloss', 'overlaploss']
-        if chamferloss is not None:
-            losses += 'chamferloss'
+        losses = ['loss', 'chamferloss', 'templateloss'] if self.chamfer \
+            else ['loss', 'surfaceloss', 'alignmentloss', 'templateloss', 'overlaploss']
         ret = { l: running_data[l] / running_data['count'] for l in losses }
         self.model.train()
         return ret

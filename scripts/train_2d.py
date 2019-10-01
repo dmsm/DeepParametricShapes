@@ -6,7 +6,6 @@ import torch as th
 import numpy as np
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
-
 import ttools
 
 from dps_2d import callbacks, datasets, templates
@@ -43,9 +42,8 @@ def main(args):
                                     args.chamfer, args.n_samples_per_curve, args.w_surface, args.w_template,
                                     args.w_alignment, args.w_overlap, cuda=args.cuda)
 
-    keys = ['loss', 'surfaceloss', 'alignmentloss', 'templateloss', 'overlaploss']
-    if args.chamfer is not None:
-        keys.append('chamferloss')
+    keys = ['loss', 'chamferloss', 'templateloss'] if args.chamfer \
+        else ['loss', 'surfaceloss', 'alignmentloss', 'templateloss', 'overlaploss']
 
     writer = SummaryWriter(os.path.join(args.checkpoint_dir, 'summaries',
                                         datetime.datetime.now().strftime('train-%m%d%y-%H%M%S')), flush_secs=1)
@@ -55,9 +53,11 @@ def main(args):
     trainer = ttools.Trainer(interface)
     trainer.add_callback(ttools.callbacks.TensorBoardLoggingCallback(keys=keys, writer=writer,
                                                                      val_writer=val_writer, frequency=5))
-    trainer.add_callback(callbacks.InputImageCallback(writer=writer, val_writer=val_writer, frequency=25))
-    trainer.add_callback(callbacks.RenderingCallback(writer=writer, val_writer=val_writer, frequency=25))
-    trainer.add_callback(callbacks.OverlapCallback(writer=writer, val_writer=val_writer, frequency=25))
+    trainer.add_callback(callbacks.InputImageCallback(writer=writer, val_writer=val_writer, frequency=100))
+    trainer.add_callback(callbacks.CurvesCallback(writer=writer, val_writer=val_writer, frequency=100))
+    if not args.chamfer:
+        trainer.add_callback(callbacks.RenderingCallback(writer=writer, val_writer=val_writer, frequency=100))
+        trainer.add_callback(callbacks.OverlapCallback(writer=writer, val_writer=val_writer, frequency=100))
     trainer.add_callback(ttools.callbacks.ProgressBarCallback(keys=keys))
     trainer.add_callback(ttools.callbacks.CheckpointingCallback(checkpointer, max_files=1))
     trainer.train(dataloader, num_epochs=args.num_epochs, val_dataloader=val_dataloader)
@@ -72,8 +72,8 @@ if __name__ == '__main__':
     parser.add_argument("--eps", type=float, default=0.04)
     parser.add_argument("--max_stroke", type=float, default=0.04)
     parser.add_argument("--canvas_size", type=int, default=128)
-    parser.add_argument("--n_samples_per_curve", type=int, default=80)
-    parser.add_argument("--chamfer", type=str)
+    parser.add_argument("--n_samples_per_curve", type=int, default=120)
+    parser.add_argument("--chamfer", default=False, dest='chamfer', action='store_true')
     parser.add_argument("--simple_templates", default=False, dest='simple_templates', action='store_true')
     args = parser.parse_args()
     ttools.set_logger(args.debug)
