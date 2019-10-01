@@ -105,6 +105,7 @@ def process_letter(font_char):
                                  bpoints[3].real, bpoints[3].imag)
             for t in np.linspace(0, 1, num=opt.n_points_sampled//len(paths)+1):
                 points.append(path.point(t))
+        ctx.fill()
 
         n_points = len(points)
         points = np.array(points, dtype=np.complex64).view(np.float32).reshape([-1, 2])
