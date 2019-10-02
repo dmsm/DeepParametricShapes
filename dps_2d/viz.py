@@ -177,10 +177,7 @@ def draw_curves(curves, n_loops, ctx, offset=(0, 0), marked_verts=[]):
 
 
 def draw_glyph(font, char, ctx, offset=(0, 0), color=(0.6, 0.6, 0.6)):
-    try:
-        face = Face('data/fonts/ttfs/{}.ttf'.format(font))
-    except:
-        face = Face('data/fonts/ttfs/{}.otf'.format(font))
+    face = Face(font)
     face.set_char_size(48*64)
     face.load_char(char)
     outline = face.glyph.outline

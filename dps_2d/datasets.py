@@ -37,7 +37,7 @@ class FontsDataset(th.utils.data.Dataset):
         distance_fields = distance_fields[1:-1,1:-1]
         occupancy_fields = utils.compute_occupancy_fields(th.max(distance_fields-0.01, th.zeros_like(distance_fields)))
         points = th.Tensor([])
-        if self.chamfer is not None:
+        if self.chamfer:
             points = th.from_numpy(np.load(os.path.join(self.root, 'points', fname + '.npy')).astype(np.float32))
             points = points[:self.n_samples_per_curve*sum(templates.topology)]
 
