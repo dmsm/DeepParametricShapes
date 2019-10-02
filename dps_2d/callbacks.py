@@ -23,14 +23,6 @@ class RenderingCallback(cb.TensorBoardImageDisplayCallback):
         return fwd_result['occupancy_fields'].unsqueeze(1)
 
 
-class OverlapCallback(cb.TensorBoardImageDisplayCallback):
-    def tag(self):
-        return 'overlap'
-
-    def visualized_image(self, batch, fwd_result):
-        return fwd_result['overlap_fields'].unsqueeze(1)
-
-
 class CurvesCallback(cb.TensorBoardImageDisplayCallback):
     def tag(self):
         return 'curves'

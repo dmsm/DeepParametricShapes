@@ -14,7 +14,8 @@ class FontsDataset(th.utils.data.Dataset):
         self.root = root
         self.chamfer = chamfer
         self.n_samples_per_curve = n_samples_per_curve
-        self.files = sorted([f[:-4] for f in os.listdir(os.path.join(self.root, 'pngs')) if f.endswith('.png')])
+        self.files = [f[:-4] for f in os.listdir(os.path.join(self.root, 'pngs')) if f.endswith('.png')]
+        np.random.shuffle(self.files)
         cutoff = int(0.9*len(self.files))
         if val:
             self.files = self.files[cutoff:]

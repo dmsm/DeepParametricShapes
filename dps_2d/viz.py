@@ -14,24 +14,8 @@ cmap = [tuple(int(x) for x in c.split('.')) for c in
                  '227.119.194', '196.156.148', '140.86.75', '188.189.34']]
 
 
-def poly_bezier_to_bezier(x):
-    x = np.reshape(x, [-1, 2])
-    x = view_as_windows(x, [3, 2], step=2)
-    return x.reshape([-1])
-
-
-def apply_templates(curves):
-    expanded_curves = []
-    splits = [4*n_curves for n_curves in templates.topology]
-    loops = np.split(curves[:4*sum(templates.topology)], [sum(splits[:i]) for i in range(1, len(splits))])
-    expanded_loops = []
-    for loop, n_curves in zip(loops, templates.topology):
-        expanded_loops.append(poly_bezier_to_bezier(np.concatenate([loop, loop[:2]], axis=0)))
-    return np.concatenate(expanded_loops, axis=0)
-
-
 def draw_vec_fig(curves_set, template_indexes, letters, fonts, filename, canvas_size, rows=2, colors=None, marked_verts=[]):
-    n = len(curves_set) if curves_set is not None else len(fonts)
+    n = curves_set.size(0) if curves_set is not None else len(fonts)
     if n > 1: w, h = n//rows, rows
     else: w, h = 1, 1
 
@@ -58,6 +42,7 @@ def draw_vec_fig(curves_set, template_indexes, letters, fonts, filename, canvas_
 
     surface.finish()
 
+
 def draw_gan_fig(images, curves_set, template_indexes, filename, canvas_size):
     n = len(curves_set)
     w, h = 3, n
@@ -82,14 +67,14 @@ def draw_gan_fig(images, curves_set, template_indexes, filename, canvas_size):
 
             curves = curves_set[c]
             template_index = template_indexes[c]
-            curves = apply_templates(curves).squeeze()
-            curves = curves.reshape([-1, 6])[:sum(templates.topologies[:template_index+1])]
+            curves = th.cat(utils.unroll_curves(curves[None], templates.topology), dim=1).squeeze(0)
+            curves = curves[:sum(templates.topology[:template_index])]
 
             x = 1
             ctx.set_line_width(0.04)
             ctx.set_source_rgb(0.1, 0.1, 0.1)
             for i in range(len(curves)):
-                a, b, c = np.split(curves[i], 3)
+                a, b, c = curves[i]
                 ctx.move_to(a[0] + x, a[1] + y)
                 ctx.curve_to(a[0] * 1/3 + b[0] * 2/3 + x, a[1] * 1/3 + b[1] * 2/3 + y,
                              b[0] * 2/3 + c[0] * 1/3 + x, b[1] * 2/3 + c[1] * 1/3 + y,
@@ -99,7 +84,7 @@ def draw_gan_fig(images, curves_set, template_indexes, filename, canvas_size):
             ctx.set_line_width(0.02)
             for i in range(len(curves)):
                 color = (x/255 for x in cmap[i % len(cmap)])
-                a, b, c = np.split(curves[i], 3)
+                a, b, c = curves[i]
                 ctx.move_to(a[0] + x, a[1] + y)
                 ctx.set_source_rgb(*color)
                 ctx.curve_to(a[0] * 1/3 + b[0] * 2/3 + x, a[1] * 1/3 + b[1] * 2/3 + y,
@@ -109,7 +94,7 @@ def draw_gan_fig(images, curves_set, template_indexes, filename, canvas_size):
 
             for i in range(len(curves)):
                 color = (x/255 for x in cmap[i % len(cmap)])
-                a, b, c = np.split(curves[i], 3)
+                a, b, c = curves[i]
                 ctx.set_source_rgb(0, 0, 0)
                 ctx.arc(a[0] + x, a[1] + y, 0.02, 0, 2*np.pi)
                 ctx.fill()
@@ -117,19 +102,18 @@ def draw_gan_fig(images, curves_set, template_indexes, filename, canvas_size):
 
             x = 2
             ctx.set_source_rgb(0, 0, 0)
-            template_topologies = templates.topology[template_index]
-            if len(template_topologies) == 1:
-                loops = [curves[:template_topologies[0]]]
+            if template_index == 1:
+                loops = [curves[:templates.topology[0]]]
             else:
-                loops = np.split(curves[:sum(template_topologies)],
-                                 [sum(template_topologies[:i]) for i in range(1, len(template_topologies))])
+                loops = np.split(curves[:sum(templates.topology[:template_index])],
+                                 [sum(templates.topology[:i]) for i in range(1, template_index)])
 
             ctx.set_fill_rule(cairo.FILL_RULE_EVEN_ODD)
             for loop in loops:
-                a, b, c = np.split(loop[0], 3)
+                a, b, c = loop[0]
                 ctx.move_to(a[0] + x, a[1] + y)
                 for curve in loop:
-                    a, b, c = np.split(curve, 3)
+                    a, b, c = curve
                     ctx.curve_to(a[0] * 1/3 + b[0] * 2/3 + x, a[1] * 1/3 + b[1] * 2/3 + y,
                                  b[0] * 2/3 + c[0] * 1/3 + x, b[1] * 2/3 + c[1] * 1/3 + y,
                                  c[0] + x, c[1] + y)
@@ -177,7 +161,10 @@ def draw_curves(curves, n_loops, ctx, offset=(0, 0), marked_verts=[]):
 
 
 def draw_glyph(font, char, ctx, offset=(0, 0), color=(0.6, 0.6, 0.6)):
-    face = Face(font)
+    try:
+        face = Face('data/ttfs/{}.ttf'.format(font))
+    except:
+        face = Face('data/ttfs/{}.otf'.format(font))
     face.set_char_size(48*64)
     face.load_char(char)
     outline = face.glyph.outline

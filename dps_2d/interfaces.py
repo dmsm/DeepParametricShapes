@@ -9,7 +9,7 @@ from . import utils, templates
 
 class VectorizerInterface(ModelInterface):
     def __init__(self, model, simple_templates, lr, max_stroke, canvas_size, chamfer, n_samples_per_curve, w_surface,
-                 w_template, w_alignment, w_overlap, cuda=True):
+                 w_template, w_alignment, cuda=True):
         self.model = model
         self.simple_templates = simple_templates
         self.max_stroke = max_stroke
@@ -19,7 +19,6 @@ class VectorizerInterface(ModelInterface):
         self.w_surface = w_surface
         self.w_template = w_template
         self.w_alignment = w_alignment
-        self.w_overlap = w_overlap
         self.cuda = cuda
         self._step = 0
 
@@ -50,30 +49,14 @@ class VectorizerInterface(ModelInterface):
             distance_fields = utils.compute_distance_fields(curves, n_loops, templates.topology, self.canvas_size)
             alignment_fields = utils.compute_alignment_fields(distance_fields.min(1)[0])
             distance_fields = distance_fields[...,1:-1,1:-1]
-            distance_fields = th.max(distance_fields-strokes[...,None,None], th.zeros_like(distance_fields))
+            distance_fields = th.max(distance_fields-strokes[...,None,None], th.zeros_like(distance_fields)).min(1)[0]
             occupancy_fields = utils.compute_occupancy_fields(distance_fields)
 
-            endpoints = curves.view(curves.size(0), -1, 2)[:,::2]
-            grid_pts = th.stack(th.meshgrid([th.linspace(0, 1, self.canvas_size)]*2),
-                                dim=-1).permute(1, 0, 2).reshape(-1, 2).type(curves.dtype)
-            if curves.is_cuda:
-                grid_pts = grid_pts.cuda()
-            endpoint_fields = th.sqrt(th.sum((endpoints[:,:,None] - grid_pts)**2, dim=-1) + 1e-6)
-            endpoint_fields = endpoint_fields.min(1)[0].view(-1, self.canvas_size, self.canvas_size)
-            endpoint_fields = th.max(endpoint_fields-self.max_stroke, th.zeros_like(endpoint_fields))
-            endpoint_fields = utils.compute_occupancy_fields(endpoint_fields)
-
-            overlap_fields = occupancy_fields.sum(1)
-            overlap_fields = th.max(overlap_fields-1-endpoint_fields, th.zeros_like(overlap_fields))
-
-            distance_fields = distance_fields.min(1)[0]
-            occupancy_fields = occupancy_fields.max(1)[0]
             ret = {
                 'curves': curves,
                 'distance_fields': distance_fields,
                 'alignment_fields': alignment_fields,
                 'occupancy_fields': occupancy_fields,
-                'overlap_fields': overlap_fields
             }
         else:
             ret = { 'curves': curves }
@@ -106,15 +89,12 @@ class VectorizerInterface(ModelInterface):
             distance_fields = fwd_data['distance_fields']
             alignment_fields = fwd_data['alignment_fields']
             occupancy_fields = fwd_data['occupancy_fields']
-            overlap_fields = fwd_data['overlap_fields']
 
             surfaceloss = th.mean(target_occupancy_fields*distance_fields + target_distance_fields*occupancy_fields)
             alignmentloss = th.mean(1 - th.sum(target_alignment_fields*alignment_fields, dim=-1)**2)
             ret['surfaceloss'] = surfaceloss
             ret['alignmentloss'] = alignmentloss
-            overlaploss = overlap_fields.mean()
-            ret['overlaploss'] = overlaploss
-            loss += self.w_surface*surfaceloss + self.w_alignment*alignmentloss + self.w_overlap*overlaploss
+            loss += self.w_surface*surfaceloss + self.w_alignment*alignmentloss
         else:
             chamferloss = utils.compute_chamfer_distance(
                     utils.sample_points_from_curves(curves, n_loops, templates.topology, self.n_samples_per_curve),
@@ -155,7 +135,7 @@ class VectorizerInterface(ModelInterface):
     def init_validation(self):
         self.model.eval()
         losses = ['loss', 'chamferloss', 'templateloss'] if self.chamfer \
-            else ['loss', 'surfaceloss', 'alignmentloss', 'templateloss', 'overlaploss']
+            else ['loss', 'surfaceloss', 'alignmentloss', 'templateloss']
         ret = { l: 0 for l in losses }
         ret['count'] = 0
         return ret
@@ -168,13 +148,11 @@ class VectorizerInterface(ModelInterface):
         if not self.chamfer:
             surfaceloss = losses_dict['surfaceloss']
             alignmentloss = losses_dict['alignmentloss']
-            overlaploss = losses_dict['overlaploss']
             ret = {
                 'loss': running_data['loss'] + loss.item()*n,
                 'surfaceloss': running_data['surfaceloss'] + surfaceloss.item()*n,
                 'alignmentloss': running_data['alignmentloss'] + alignmentloss.item()*n,
                 'templateloss': running_data['templateloss'] + templateloss.item()*n,
-                'overlaploss': running_data['overlaploss'] + overlaploss.item()*n,
                 'count': running_data['count'] + n
             }
         else:
@@ -189,7 +167,7 @@ class VectorizerInterface(ModelInterface):
 
     def finalize_validation(self, running_data):
         losses = ['loss', 'chamferloss', 'templateloss'] if self.chamfer \
-            else ['loss', 'surfaceloss', 'alignmentloss', 'templateloss', 'overlaploss']
+            else ['loss', 'surfaceloss', 'alignmentloss', 'templateloss']
         ret = { l: running_data[l] / running_data['count'] for l in losses }
         self.model.train()
         return ret
