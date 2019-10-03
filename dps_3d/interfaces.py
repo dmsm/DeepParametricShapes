@@ -30,14 +30,35 @@ class VectorizerInterface(ModelInterface):
 
         params = self.model(points.permute(0, 2, 1))
         params = params.view(params.size(0), self.n_primitives, -1)
+
+        # plus_params = params[:,:self.n_primitives//2]
+        # plus_params = th.cat([0.3*th.sigmoid(plus_params[...,:3])+0.05,
+        #                  plus_params[...,3:6],
+        #                  0.8*th.sigmoid(plus_params[...,6:10])+0.1,
+        #                  th.sigmoid(plus_params[...,10:])], dim=-1)
+        # plus_distance_fields = utils.compute_distance_fields(plus_params, self.canvas_size,
+        #                                                 df=utils.distance_to_rounded_cuboids)
+        # plus_distance_fields = plus_distance_fields.min(1)[0]
+
+        # minus_params = params[:,self.n_primitives//2:]
+        # minus_params = th.cat([0.3*th.sigmoid(minus_params[...,:3])+0.05,
+        #                  minus_params[...,3:6],
+        #                  0.8*th.sigmoid(minus_params[...,6:10])+0.1,
+        #                  th.sigmoid(minus_params[...,10:])], dim=-1)
+        # minus_distance_fields = utils.compute_distance_fields(minus_params, self.canvas_size,
+        #                                                 df=utils.distance_to_rounded_cuboids)
+        # minus_distance_fields = minus_distance_fields.min(1)[0]
+
+        # distance_fields = th.max(plus_distance_fields, -minus_distance_fields).abs()
+
         params = th.cat([0.3*th.sigmoid(params[...,:3])+0.05,
                          params[...,3:6],
                          0.8*th.sigmoid(params[...,6:10])+0.1,
                          th.sigmoid(params[...,10:])], dim=-1)
-
         distance_fields = utils.compute_distance_fields(params, self.canvas_size,
-                                                        df=utils.distance_to_rounded_cuboids).abs()
-        distance_fields = distance_fields.min(1)[0]
+                                                        df=utils.distance_to_rounded_cuboids)
+        distance_fields = distance_fields.min(1)[0].abs()
+
         alignment_fields = utils.compute_alignment_fields(distance_fields)
         distance_fields = distance_fields[...,1:-1,1:-1,1:-1]
         occupancy_fields = utils.compute_occupancy_fields(distance_fields)
