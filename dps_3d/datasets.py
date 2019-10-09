@@ -42,7 +42,7 @@ class ShapenetDataset(th.utils.data.Dataset):
             distance_fields = distance_fields[5:-5,5:-5,5:-5]
             alignment_fields = alignment_fields[5:-5,5:-5,5:-5]
 
-        occupancy_fields = utils.compute_occupancy_fields(occupancy_fields)
+        occupancy_fields = utils.compute_occupancy_fields(distance_fields)
 
         return {
             'fname': fname,
