@@ -31,7 +31,7 @@ class VectorizerInterface(ModelInterface):
             points = points.cuda()
 
         params = self.model(points.permute(0, 2, 1))
-        params = params.view(params.size(0), self.n_primitives, -1)
+        params = th.sigmoid(params.view(params.size(0), self.n_primitives, -1))
 
         params = th.cat([0.3*th.sigmoid(params[...,:3])+0.05,
                          params[...,3:6],
@@ -52,7 +52,6 @@ class VectorizerInterface(ModelInterface):
         else:
             distance_fields = utils.compute_distance_fields(params, self.canvas_size, df=df)
             distance_fields = distance_fields.min(1)[0].abs()
-
         alignment_fields = utils.compute_alignment_fields(distance_fields)
         distance_fields = distance_fields[...,1:-1,1:-1,1:-1]
         occupancy_fields = utils.compute_occupancy_fields(distance_fields)

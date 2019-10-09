@@ -60,8 +60,7 @@ def main(args):
 if __name__ == '__main__':
     parser = ttools.BasicArgumentParser()
     parser.add_argument("--w_surface", type=float, default=1)
-    parser.add_argument("--w_alignment", type=float, default=0.005)
-    parser.add_argument("--eps", type=float, default=0.03)
+    parser.add_argument("--w_alignment", type=float, default=0.01)
     parser.add_argument("--canvas_size", type=int, default=64)
     parser.add_argument("--n_primitives", type=int, default=16)
     parser.add_argument("--csg", default=False, dest='csg', action='store_true')
