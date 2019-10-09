@@ -15,7 +15,7 @@ for box in primitives:
     box_ = bpy.context.active_object
     box_.rotation_mode = 'QUATERNION'
     rot = box['rotation']
-    box_.rotation_quaternion = (rot[0], rot[1], rot[2], rot[3])
+    box_.rotation_quaternion = (-rot[0], rot[1], rot[2], rot[3])
     bevel = box_.modifiers.new('bevel', 'BEVEL')
     bevel.segments = 40
     bevel.width = box['r']

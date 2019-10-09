@@ -120,7 +120,7 @@ def compute_alignment_fields(distance_fields):
     return alignment_fields / th.sqrt(th.sum(alignment_fields**2, dim=-1, keepdims=True) + 1e-6)
 
 
-def compute_occupancy_fields(distance_fields, eps=0.04):
+def compute_occupancy_fields(distance_fields, eps=0.02):
     """Compute smooth occupancy fields from distance fields."""
     occupancy_fields = 1 - th.clamp(distance_fields / eps, 0, 1)
     return occupancy_fields**2 * (3 - 2*occupancy_fields)
@@ -134,7 +134,7 @@ def sample_points_from_curves(curves, n_loops, topology, n_samples_per_curve):
     topology -- [n_loops] list of curves per loop (should sum to max_n_curves)
     n_samples_per_curve
     """
-    A = curves.new_tensor([[1., 0, 0],
+    A = curves.new_tensor([[1, 0, 0],
                            [-2, 2, 0],
                            [1, -2, 1]])
 

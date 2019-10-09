@@ -9,19 +9,16 @@ from svgpathtools import Line, Path, QuadraticBezier, CubicBezier, paths2svg
 from skimage.util.shape import view_as_windows
 from tqdm import tqdm
 
-from opt import Opt
-import util
-
-opt = Opt()
+from . import templates
 
 
 n_points_per_unit_length = 600
 
 def sample_points_from_font(font, char):
     try:
-        face = Face('data/fonts/ttfs/{}.ttf'.format(font))
+        face = Face('data/ttfs/{}.ttf'.format(font))
     except:
-        face = Face('data/fonts/ttfs/{}.otf'.format(font))
+        face = Face('data/ttfs/{}.otf'.format(font))
     face.set_char_size(48*64)
     face.load_char(char)
     outline = face.glyph.outline
@@ -96,17 +93,17 @@ def poly_bezier_to_bezier(x):
 
 def apply_templates(curves):
     expanded_curves = []
-    splits = [4*n_curves for n_curves in opt.template_topology]
-    loops = np.split(curves[:4*sum(opt.template_topology)], [sum(splits[:i]) for i in range(1, len(splits))])
+    splits = [4*n_curves for n_curves in templates.topology]
+    loops = np.split(curves[:4*sum(templates.topology)], [sum(splits[:i]) for i in range(1, len(splits))])
     expanded_loops = []
-    for loop, n_curves in zip(loops, opt.template_topology):
+    for loop, n_curves in zip(loops, templates.topology):
         expanded_loops.append(poly_bezier_to_bezier(np.concatenate([loop, loop[:2]], axis=0)))
     return np.concatenate(expanded_loops, axis=0)
 
 
 def sample_points_from_curves(curves, template):
     curves = apply_templates(curves).squeeze()
-    curves = curves.reshape([-1, 6])[:opt.template_lengths[template]]
+    curves = curves.reshape([-1, 6])[:sum(templates.topology[:template])]
     segments = []
     points = []
     for curve in curves:

@@ -34,13 +34,13 @@ def main(args):
     val_data = datasets.ShapenetDataset(args.data, args.canvas_size, val=True)
     val_dataloader = DataLoader(val_data)
 
-    model = PrimsModel(output_dim=11*args.n_primitives)
+    model = PrimsModel(output_dim=(11 if args.rounded else 10)*args.n_primitives)
 
     checkpointer = ttools.Checkpointer(args.checkpoint_dir, model)
     checkpointer.load_latest()
 
     interface = VectorizerInterface(model, args.lr, args.n_primitives, args.canvas_size, args.w_surface,
-                                    args.w_alignment, cuda=args.cuda)
+                                    args.w_alignment, args.csg, args.rounded, cuda=args.cuda)
 
     keys = ['loss', 'surfaceloss', 'alignmentloss']
 
@@ -64,6 +64,8 @@ if __name__ == '__main__':
     parser.add_argument("--eps", type=float, default=0.03)
     parser.add_argument("--canvas_size", type=int, default=64)
     parser.add_argument("--n_primitives", type=int, default=16)
+    parser.add_argument("--csg", default=False, dest='csg', action='store_true')
+    parser.add_argument("--rounded", default=False, dest='rounded', action='store_true')
     args = parser.parse_args()
     ttools.set_logger(args.debug)
     main(args)

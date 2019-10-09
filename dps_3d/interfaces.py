@@ -9,13 +9,15 @@ from . import utils
 
 
 class VectorizerInterface(ModelInterface):
-    def __init__(self, model, lr, n_primitives, canvas_size, w_surface, w_alignment, cuda=True):
+    def __init__(self, model, lr, n_primitives, canvas_size, w_surface, w_alignment, csg, rounded, cuda=True):
         self.model = model
         self.cuda = cuda
         self.n_primitives = n_primitives
         self.canvas_size = canvas_size
         self.w_surface = w_surface
         self.w_alignment = w_alignment
+        self.csg = csg
+        self.rounded = rounded
         self._step = 0
 
         if self.cuda:
@@ -31,33 +33,25 @@ class VectorizerInterface(ModelInterface):
         params = self.model(points.permute(0, 2, 1))
         params = params.view(params.size(0), self.n_primitives, -1)
 
-        # plus_params = params[:,:self.n_primitives//2]
-        # plus_params = th.cat([0.3*th.sigmoid(plus_params[...,:3])+0.05,
-        #                  plus_params[...,3:6],
-        #                  0.8*th.sigmoid(plus_params[...,6:10])+0.1,
-        #                  th.sigmoid(plus_params[...,10:])], dim=-1)
-        # plus_distance_fields = utils.compute_distance_fields(plus_params, self.canvas_size,
-        #                                                 df=utils.distance_to_rounded_cuboids)
-        # plus_distance_fields = plus_distance_fields.min(1)[0]
-
-        # minus_params = params[:,self.n_primitives//2:]
-        # minus_params = th.cat([0.3*th.sigmoid(minus_params[...,:3])+0.05,
-        #                  minus_params[...,3:6],
-        #                  0.8*th.sigmoid(minus_params[...,6:10])+0.1,
-        #                  th.sigmoid(minus_params[...,10:])], dim=-1)
-        # minus_distance_fields = utils.compute_distance_fields(minus_params, self.canvas_size,
-        #                                                 df=utils.distance_to_rounded_cuboids)
-        # minus_distance_fields = minus_distance_fields.min(1)[0]
-
-        # distance_fields = th.max(plus_distance_fields, -minus_distance_fields).abs()
-
         params = th.cat([0.3*th.sigmoid(params[...,:3])+0.05,
                          params[...,3:6],
                          0.8*th.sigmoid(params[...,6:10])+0.1,
                          th.sigmoid(params[...,10:])], dim=-1)
-        distance_fields = utils.compute_distance_fields(params, self.canvas_size,
-                                                        df=utils.distance_to_rounded_cuboids)
-        distance_fields = distance_fields.min(1)[0].abs()
+
+        df = utils.distance_to_rounded_cuboids if self.rounded else utils.distance_to_cuboids
+        if self.csg:
+            plus_params = params[:,:self.n_primitives//2]
+            plus_distance_fields = utils.compute_distance_fields(plus_params, self.canvas_size, df=df)
+            plus_distance_fields = plus_distance_fields.min(1)[0]
+
+            minus_params = params[:,self.n_primitives//2:]
+            minus_distance_fields = utils.compute_distance_fields(minus_params, self.canvas_size, df=df)
+            minus_distance_fields = minus_distance_fields.min(1)[0]
+
+            distance_fields = th.max(plus_distance_fields, -minus_distance_fields).abs()
+        else:
+            distance_fields = utils.compute_distance_fields(params, self.canvas_size, df=df)
+            distance_fields = distance_fields.min(1)[0].abs()
 
         alignment_fields = utils.compute_alignment_fields(distance_fields)
         distance_fields = distance_fields[...,1:-1,1:-1,1:-1]
