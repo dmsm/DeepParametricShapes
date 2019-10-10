@@ -13,6 +13,7 @@ class ShapenetDataset(th.utils.data.Dataset):
         self.root = root
         self.canvas_size = canvas_size
         self.files = sorted([f for f in os.listdir(self.root) if os.path.isdir(os.path.join(self.root, f))])
+        np.random.shuffle(self.files)
         cutoff = int(0.9*len(self.files))
         if val:
             self.files = self.files[cutoff:]
