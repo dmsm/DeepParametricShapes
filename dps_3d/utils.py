@@ -30,7 +30,7 @@ def distance_to_cuboids(source_points, params):
 
     d = p.abs() - b
     length = th.sqrt(th.sum(th.max(d, th.zeros_like(d))**2, dim=-1) + 1e-6)
-    max_d, _ = th.max(d, dim=-1)
+    max_d, _ = d.max(-1)
 
     sdf = length + th.min(max_d, th.zeros_like(max_d))
 
@@ -44,7 +44,7 @@ def distance_to_rounded_cuboids(source_points, params):
     params -- [b, 11]
     """
     b, q, T, r = th.split(params, [3, 4, 3, 1], dim=-1)
-    r = r*th.min(b, dim=-1, keepdims=True)[0]
+    r = r*b.min(-1, keepdims=True)[0]
     b = b - r
     q = q / th.sqrt(th.sum(q**2, dim=-1, keepdims=True) + 1e-6)
 
@@ -58,7 +58,7 @@ def distance_to_rounded_cuboids(source_points, params):
 
     d = p.abs() - b
     length = th.sqrt(th.sum(th.max(d, th.zeros_like(d))**2, dim=-1) + 1e-6)
-    max_d, _ = th.max(d, dim=-1)
+    max_d, _ = d.max(-1)
 
     sdf = length + th.min(max_d, th.zeros_like(max_d)) - r.squeeze(-1)
 

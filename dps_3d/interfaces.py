@@ -33,10 +33,7 @@ class VectorizerInterface(ModelInterface):
         params = self.model(points.permute(0, 2, 1))
         params = th.sigmoid(params.view(params.size(0), self.n_primitives, -1))
 
-        params = th.cat([0.3*th.sigmoid(params[...,:3])+0.05,
-                         params[...,3:6],
-                         0.8*th.sigmoid(params[...,6:10])+0.1,
-                         th.sigmoid(params[...,10:])], dim=-1)
+        params = th.cat([0.3*params[...,:3]+0.05, params[...,3:7], 0.8*params[...,7:10]+0.1, params[...,10:]], dim=-1)
 
         df = utils.distance_to_rounded_cuboids if self.rounded else utils.distance_to_cuboids
         if self.csg:
