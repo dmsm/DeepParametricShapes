@@ -27,7 +27,7 @@ class ShapenetDataset(th.utils.data.Dataset):
 
     def __getitem__(self, idx):
         fname = self.files[idx]
-        distance_fields = th.from_numpy(np.load(os.path.join(self.root, fname, 'df.npy')).astype(np.float32))
+        distance_fields = th.from_numpy(np.load(os.path.join(self.root, fname, 'df.npy')).astype(np.float32)) ** 2
         alignment_fields = th.from_numpy(np.load(os.path.join(self.root, fname, 'af.npy')).astype(np.float32))
 
         if self.jitter:

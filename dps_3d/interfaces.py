@@ -31,7 +31,7 @@ class VectorizerInterface(ModelInterface):
             df = df.cuda()
 
         params = self.model(df[:,None]).view(df.size(0), self.n_primitives, -1)
-        params = th.cat([0.3*params[...,:3]+0.05, params[...,3:7], 0.8*params[...,7:10]+0.1, params[...,10:]], dim=-1)
+        params = th.cat([0.35*params[...,:3], params[...,3:]], dim=-1)
 
         df = utils.distance_to_rounded_cuboids if self.rounded else utils.distance_to_cuboids
         if self.csg:
@@ -43,10 +43,10 @@ class VectorizerInterface(ModelInterface):
             minus_distance_fields = utils.compute_distance_fields(minus_params, self.canvas_size, df=df)
             minus_distance_fields = minus_distance_fields.min(1)[0]
 
-            distance_fields = th.max(plus_distance_fields, -minus_distance_fields).abs()
+            distance_fields = th.max(plus_distance_fields, -minus_distance_fields) ** 2
         else:
             distance_fields = utils.compute_distance_fields(params, self.canvas_size, df=df)
-            distance_fields = distance_fields.min(1)[0].abs()
+            distance_fields = distance_fields.min(1)[0] ** 2
         alignment_fields = utils.compute_alignment_fields(distance_fields)
         distance_fields = distance_fields[...,1:-1,1:-1,1:-1]
         occupancy_fields = utils.compute_occupancy_fields(distance_fields)

@@ -105,7 +105,7 @@ def compute_alignment_fields(distance_fields):
     return alignment_fields / th.sqrt(th.sum(alignment_fields**2, dim=-1, keepdims=True) + 1e-6)
 
 
-def compute_occupancy_fields(distance_fields, eps=0.04):
+def compute_occupancy_fields(distance_fields, eps=(2/64)**2):
     """Compute smooth occupancy fields from distance fields."""
     occupancy_fields = 1 - th.clamp(distance_fields / eps, 0, 1)
     return occupancy_fields**2 * (3 - 2*occupancy_fields)
