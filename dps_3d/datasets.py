@@ -7,12 +7,12 @@ from . import utils
 
 
 class ShapenetDataset(th.utils.data.Dataset):
-    def __init__(self, root, canvas_size, n_points=1024, val=False, jitter=False):
+    def __init__(self, root, canvas_size,  val=False, jitter=True):
         self.jitter = jitter
-        self.n_points = n_points
         self.root = root
         self.canvas_size = canvas_size
         self.files = sorted([f for f in os.listdir(self.root) if os.path.isdir(os.path.join(self.root, f))])
+        np.random.shuffle(self.files)
         cutoff = int(0.9*len(self.files))
         if val:
             self.files = self.files[cutoff:]
@@ -29,9 +29,6 @@ class ShapenetDataset(th.utils.data.Dataset):
         fname = self.files[idx]
         distance_fields = th.from_numpy(np.load(os.path.join(self.root, fname, 'df.npy')).astype(np.float32))
         alignment_fields = th.from_numpy(np.load(os.path.join(self.root, fname, 'af.npy')).astype(np.float32))
-        points = np.load(os.path.join(self.root, fname, 'points.npy')).astype(np.float32)
-        np.random.shuffle(points)
-        points = th.from_numpy(points[:self.n_points])
 
         if self.jitter:
             x, y, z = np.random.randint(distance_fields.size(0)-self.canvas_size+1, size=3)
@@ -49,5 +46,4 @@ class ShapenetDataset(th.utils.data.Dataset):
             'distance_fields': distance_fields,
             'alignment_fields': alignment_fields,
             'occupancy_fields': occupancy_fields,
-            'points': points
         }

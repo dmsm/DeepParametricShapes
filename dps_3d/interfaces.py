@@ -26,13 +26,11 @@ class VectorizerInterface(ModelInterface):
         self.optimizer = th.optim.Adam(self.model.parameters(), lr=lr)
 
     def forward(self, batch):
-        points = batch['points']
+        df = batch['distance_fields']
         if self.cuda:
-            points = points.cuda()
+            df = df.cuda()
 
-        params = self.model(points.permute(0, 2, 1))
-        params = th.sigmoid(params.view(params.size(0), self.n_primitives, -1))
-
+        params = self.model(df[:,None]).view(df.size(0), self.n_primitives, -1)
         params = th.cat([0.3*params[...,:3]+0.05, params[...,3:7], 0.8*params[...,7:10]+0.1, params[...,10:]], dim=-1)
 
         df = utils.distance_to_rounded_cuboids if self.rounded else utils.distance_to_cuboids

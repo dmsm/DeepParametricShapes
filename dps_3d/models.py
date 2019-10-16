@@ -5,14 +5,12 @@ import torch.nn as nn
 
 from torchvision.models.resnet import BasicBlock
 
-from . import dgcnn
-
 
 class PrimsModel(nn.Module):
     def __init__(self, output_dim):
         super(PrimsModel, self).__init__()
 
-        self.encoder = dgcnn.PointNet() # ResNet(BasicBlock, [2, 2, 2, 2], num_classes=256)
+        self.encoder = ResNet(BasicBlock, [2, 2, 2, 2], num_classes=256)
         self.decoder = nn.Sequential(
                 nn.ReLU(),
                 nn.Linear(256, 128),
@@ -22,7 +20,7 @@ class PrimsModel(nn.Module):
 
     def forward(self, x):
         code = self.encoder(x)
-        return self.decoder(code)
+        return th.sigmoid(self.decoder(code))
 
 
 class ResNet(nn.Module):
