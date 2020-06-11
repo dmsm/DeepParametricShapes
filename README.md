@@ -4,7 +4,7 @@
 
 **Deep Parametric Shape Predictions using Distance Fields**<br>
 Dmitriy Smirnov, Matthew Fisher, Vladimir G. Kim, Richard Zhang, Justin Solomon<br>
-Conference on [Computer Vision and Pattern Recognition (CVPR) 2020](http://cvpr2020.thecvf.com)
+[Conference on Computer Vision and Pattern Recognition (CVPR) 2020](http://cvpr2020.thecvf.com)
 
 ### Set-up
 To install the code, run:
