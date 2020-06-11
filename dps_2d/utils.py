@@ -58,7 +58,7 @@ def distance_to_curves(source_points, curves):
                        [1, -2, 1]])
     points = ts @ A @ curves.unsqueeze(-3)  # [..., n_points, 5, 2]
 
-    sizes = [-1] * (points.dim() - 3) + [points.size(-3), -1, -1]
+    sizes = [-1] * (points.dim() - 3) + [points.shape[-3], -1, -1]
     endpoints = th.cat([p0, p2], dim=-2).unsqueeze(-3).expand(*sizes)  # [..., n_points, 2, 2]
     points = th.cat([points, endpoints], dim=-2)  # [..., n_points, 7, 2]
 
@@ -73,7 +73,7 @@ def unroll_curves(curves, topology):
     curves -- [b, 2*max_n_curves, 2]
     topology -- [n_loops] list of curves per loop (should sum to max_n_curves)
     """
-    b = curves.size(0)
+    b = curves.shape[0]
     curves = curves.view(b, -1, 2)
     loops = th.split(curves, [2*n for n in topology], dim=1)
     unrolled_loops = []
@@ -93,16 +93,14 @@ def compute_distance_fields(curves, n_loops, topology, canvas_size):
     canvas_size
     """
     grid_pts = th.stack(th.meshgrid([th.linspace(-1/(canvas_size-1), 1+1/(canvas_size-1), canvas_size+2)]*2),
-                        dim=-1).permute(1, 0, 2).reshape(-1, 2).type(curves.dtype)
-    if curves.is_cuda:
-        grid_pts = grid_pts.cuda()
+                        dim=-1).permute(1, 0, 2).reshape(-1, 2).to(curves)
 
     loops = unroll_curves(curves, topology)
     distance_fields = []
     for i, loop in enumerate(loops):
         idxs = (n_loops>i).nonzero().squeeze()
-        n_curves = loop.size(1)
-        padded_distances = 10*loop.new_ones(loop.size(0), n_curves, canvas_size+2, canvas_size+2)
+        n_curves = loop.shape[1]
+        padded_distances = 10*loop.new_ones(loop.shape[0], n_curves, canvas_size+2, canvas_size+2)
         if idxs.numel() > 0:
             distances = distance_to_curves(grid_pts, loop.index_select(0, idxs)).view(-1, n_curves,
                                                                                       canvas_size+2, canvas_size+2)
@@ -120,7 +118,7 @@ def compute_alignment_fields(distance_fields):
     return alignment_fields / th.sqrt(th.sum(alignment_fields**2, dim=-1, keepdims=True) + 1e-6)
 
 
-def compute_occupancy_fields(distance_fields, eps=0.02):
+def compute_occupancy_fields(distance_fields, eps=(2/128)**2):
     """Compute smooth occupancy fields from distance fields."""
     occupancy_fields = 1 - th.clamp(distance_fields / eps, 0, 1)
     return occupancy_fields**2 * (3 - 2*occupancy_fields)
@@ -139,24 +137,20 @@ def sample_points_from_curves(curves, n_loops, topology, n_samples_per_curve):
                            [1, -2, 1]])
 
     loops = unroll_curves(curves, topology)
-    all_points = th.empty(curves.size(0), 0, 2)
-    if curves.is_cuda:
-        all_points = all_points.cuda()
+    all_points = th.empty(curves.shape[0], 0, 2).to(curves)
     for i, loop in enumerate(loops):
         idxs = (n_loops>i).nonzero().squeeze()
         loop = loop.index_select(0, idxs)  # [?, n_curves, 3, 2]
-        n_curves = loop.size(1)
+        n_curves = loop.shape[1]
 
         ts = th.empty(n_curves, n_samples_per_curve).uniform_(0, 1)
-        ts = ts[...,None].pow(ts.new_tensor([0, 1, 2]))  # [n_points, 3]
-        if curves.is_cuda:
-            ts = ts.cuda()
+        ts = ts[...,None].pow(ts.new_tensor([0, 1, 2])).to(curves)  # [n_points, 3]
 
         points = ts @ A @ loop  # [?, n_curves, n_points, 2]
         points = points.view(-1, n_samples_per_curve*n_curves, 2)
 
         if i > 0:
-            pad_idxs = th.randperm(all_points.size(1))[:n_samples_per_curve*n_curves]
+            pad_idxs = th.randperm(all_points.shape[1])[:n_samples_per_curve*n_curves]
             padded_points = all_points[:,pad_idxs]
 
             padded_points[idxs] = points
@@ -174,4 +168,4 @@ def compute_chamfer_distance(a, b):
     b -- [b, m, 2]
     """
     D = th.sqrt(th.sum((a.unsqueeze(1) - b.unsqueeze(2))**2, dim=-1) + 1e-6)  # [b, m, n]
-    return th.mean(th.sum(D.min(1)[0], dim=1) / a.size(1) + th.sum(D.min(2)[0], dim=1) / b.size(1))
+    return th.mean(th.sum(D.min(1)[0], dim=1) / a.shape[1] + th.sum(D.min(2)[0], dim=1) / b.shape[1])

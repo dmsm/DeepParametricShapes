@@ -10,10 +10,6 @@ import numpy as np
 from svgpathtools import Line, Path, QuadraticBezier, CubicBezier, paths2svg
 from tqdm import tqdm
 
-from opt import Opt
-import util
-
-opt = Opt()
 
 def process_letter(font_char):
     try:
@@ -77,9 +73,9 @@ def process_letter(font_char):
             paths[i] = path.translated(complex(xmargin, ymargin))
 
         points = []
-        surface = cairo.ImageSurface(cairo.Format.RGB24, opt.img_size, opt.img_size)
+        surface = cairo.ImageSurface(cairo.Format.RGB24, 128, 128)
         ctx = cairo.Context(surface)
-        ctx.scale(opt.img_size, opt.img_size)
+        ctx.scale(128, 128)
         ctx.set_source_rgba(1, 1, 1)
         ctx.rectangle(0, 0, 1, 1)
         ctx.fill()
@@ -103,7 +99,7 @@ def process_letter(font_char):
                     ctx.curve_to(bpoints[1].real, bpoints[1].imag,
                                  bpoints[2].real, bpoints[2].imag,
                                  bpoints[3].real, bpoints[3].imag)
-            for t in np.linspace(0, 1, num=opt.n_points_sampled//len(paths)+1):
+            for t in np.linspace(0, 1, num=2000//len(paths)+1):
                 points.append(path.point(t))
         ctx.fill()
 
@@ -111,8 +107,9 @@ def process_letter(font_char):
         points = np.array(points, dtype=np.complex64).view(np.float32).reshape([-1, 2])
         np.random.shuffle(points)
         np.save('data/fonts/points/{}.npy'.format(name), points)
+        print('data/fonts/points/{}.npy'.format(name))
 
-        grid = np.mgrid[-0.25:1.25:opt.img_size*1.5j, -0.25:1.25:opt.img_size*1.5j].T[:,:,None,:]
+        grid = np.mgrid[-0.25:1.25:128*1.5j, -0.25:1.25:128*1.5j].T[:,:,None,:]
         distances = np.empty((grid.shape[0], grid.shape[1]))
         for i in range(grid.shape[0]):
             for j in range(grid.shape[0]):
@@ -134,6 +131,4 @@ to_process = [(font, letter) for letter in string.ascii_uppercase for font in fo
 to_remove = []
 with Pool() as workers, tqdm(total=len(to_process)) as pbar:
     for result in tqdm(workers.imap_unordered(process_letter, to_process)):
-        if result is not None:
-            print(result)
         pbar.update()

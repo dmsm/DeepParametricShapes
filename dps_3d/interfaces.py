@@ -82,7 +82,10 @@ class VectorizerInterface(ModelInterface):
 
         return ret
 
-    def backward(self, batch, fwd_data):
+    def training_step(self, batch):
+        self.model.train()
+        fwd_data = self.forward(batch)
+
         self.optimizer.zero_grad()
 
         losses_dict = self._compute_lossses(batch, fwd_data)
@@ -95,27 +98,24 @@ class VectorizerInterface(ModelInterface):
         return { k: v.item() for k, v in losses_dict.items() }
 
     def init_validation(self):
-        self.model.eval()
         losses = ['loss', 'surfaceloss', 'alignmentloss']
         ret = { l: 0 for l in losses }
         ret['count'] = 0
         return ret
 
-    def update_validation(self, batch, fwd_data, running_data):
+    def validation_step(self, batch, running_data):
+        self.model.eval()
         n = batch['distance_fields'].shape[0]
+        count = running_data['count']
+
+        fwd_data = self.forward(batch)
         losses_dict = self._compute_lossses(batch, fwd_data)
         loss = losses_dict['loss']
         surfaceloss = losses_dict['surfaceloss']
         alignmentloss = losses_dict['alignmentloss']
         return {
-            'loss': running_data['loss'] + loss.item()*n,
-            'surfaceloss': running_data['surfaceloss'] + surfaceloss.item()*n,
-            'alignmentloss': running_data['alignmentloss'] + alignmentloss.item()*n,
-            'count': running_data['count'] + n
+            'loss': (running_data['loss']*count + loss.item()*n) / (count+n),
+            'surfaceloss': (running_data['surfaceloss']*count + surfaceloss.item()*n) / (count+n),
+            'alignmentloss': (running_data['alignmentloss']*count + alignmentloss.item()*n) / (count+n),
+            'count': count+n
         }
-
-    def finalize_validation(self, running_data):
-        losses = ['loss', 'surfaceloss', 'alignmentloss']
-        ret = { l: running_data[l] / running_data['count'] for l in losses }
-        self.model.train()
-        return ret

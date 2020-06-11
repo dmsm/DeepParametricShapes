@@ -47,9 +47,10 @@ class VectorizerInterface(ModelInterface):
         if not self.chamfer:
             strokes = out['strokes'] * self.max_stroke
             distance_fields = utils.compute_distance_fields(curves, n_loops, templates.topology, self.canvas_size)
-            alignment_fields = utils.compute_alignment_fields(distance_fields.min(1)[0])
-            distance_fields = distance_fields[...,1:-1,1:-1]
             distance_fields = th.max(distance_fields-strokes[...,None,None], th.zeros_like(distance_fields)).min(1)[0]
+            distance_fields = distance_fields ** 2
+            alignment_fields = utils.compute_alignment_fields(distance_fields)
+            distance_fields = distance_fields[...,1:-1,1:-1]
             occupancy_fields = utils.compute_occupancy_fields(distance_fields)
 
             ret = {
@@ -120,7 +121,10 @@ class VectorizerInterface(ModelInterface):
 
         return ret
 
-    def backward(self, batch, fwd_data):
+    def training_step(self, batch):
+        self.model.train()
+        fwd_data = self.forward(batch)
+
         self.optimizer.zero_grad()
 
         losses_dict = self._compute_lossses(batch, fwd_data)
@@ -130,44 +134,39 @@ class VectorizerInterface(ModelInterface):
         self.optimizer.step()
         self._step += 1
 
-        return { k: v.item() for k, v in losses_dict.items() }
+        fwd_data.update({ k: v.item() for k, v in losses_dict.items() })
+        return fwd_data
 
     def init_validation(self):
-        self.model.eval()
         losses = ['loss', 'chamferloss', 'templateloss'] if self.chamfer \
             else ['loss', 'surfaceloss', 'alignmentloss', 'templateloss']
         ret = { l: 0 for l in losses }
         ret['count'] = 0
         return ret
 
-    def update_validation(self, batch, fwd_data, running_data):
+    def validation_step(self, batch, running_data):
+        self.model.eval()
         n = batch['im'].shape[0]
+        count = running_data['count']
+
+        fwd_data = self.forward(batch)
         losses_dict = self._compute_lossses(batch, fwd_data)
         loss = losses_dict['loss']
         templateloss = losses_dict['templateloss']
+
+        ret = {
+            'loss': (running_data['loss']*count + loss.item()*n) / (count+n),
+            'templateloss': (running_data['templateloss']*count + templateloss.item()*n) / (count+n),
+        }
         if not self.chamfer:
             surfaceloss = losses_dict['surfaceloss']
             alignmentloss = losses_dict['alignmentloss']
-            ret = {
-                'loss': running_data['loss'] + loss.item()*n,
-                'surfaceloss': running_data['surfaceloss'] + surfaceloss.item()*n,
-                'alignmentloss': running_data['alignmentloss'] + alignmentloss.item()*n,
-                'templateloss': running_data['templateloss'] + templateloss.item()*n,
-                'count': running_data['count'] + n
-            }
+            ret['surfaceloss'] = (running_data['surfaceloss']*count + surfaceloss.item()*n) / (count+n)
+            ret['alignmentloss'] = (running_data['alignmentloss']*count + alignmentloss.item()*n) / (count+n)
         else:
             chamferloss = losses_dict['chamferloss']
-            ret = {
-                'loss': running_data['loss'] + loss.item()*n,
-                'templateloss': running_data['templateloss'] + templateloss.item()*n,
-                'chamferloss': running_data['chamferloss'] + chamferloss.item()*n,
-                'count': running_data['count'] + n
-            }
-        return ret
+            ret['chamferloss'] = (running_data['chamferloss']*count + chamferloss.item()*n) / (count+n)
 
-    def finalize_validation(self, running_data):
-        losses = ['loss', 'chamferloss', 'templateloss'] if self.chamfer \
-            else ['loss', 'surfaceloss', 'alignmentloss', 'templateloss']
-        ret = { l: running_data[l] / running_data['count'] for l in losses }
-        self.model.train()
+        ret['count'] = count+n
+        ret = ret.update(fwd_data)
         return ret

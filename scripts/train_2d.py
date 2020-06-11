@@ -36,7 +36,8 @@ def main(args):
     model = CurvesModel(n_curves=sum(templates.topology))
 
     checkpointer = ttools.Checkpointer(args.checkpoint_dir, model)
-    checkpointer.load_latest()
+    extras, meta = checkpointer.load_latest()
+    starting_epoch = extras['epoch'] if extras is not None else None
 
     interface = VectorizerInterface(model, args.simple_templates, args.lr, args.max_stroke, args.canvas_size,
                                     args.chamfer, args.n_samples_per_curve, args.w_surface, args.w_template,
@@ -58,8 +59,8 @@ def main(args):
     if not args.chamfer:
         trainer.add_callback(callbacks.RenderingCallback(writer=writer, val_writer=val_writer, frequency=100))
     trainer.add_callback(ttools.callbacks.ProgressBarCallback(keys=keys))
-    trainer.add_callback(ttools.callbacks.CheckpointingCallback(checkpointer, max_files=1))
-    trainer.train(dataloader, num_epochs=args.num_epochs, val_dataloader=val_dataloader)
+    trainer.add_callback(ttools.callbacks.CheckpointingCallback(checkpointer, interval=None, max_epochs=2))
+    trainer.train(dataloader, num_epochs=args.num_epochs, val_dataloader=val_dataloader, starting_epoch=starting_epoch)
 
 
 if __name__ == '__main__':
@@ -73,6 +74,7 @@ if __name__ == '__main__':
     parser.add_argument("--n_samples_per_curve", type=int, default=120)
     parser.add_argument("--chamfer", default=False, dest='chamfer', action='store_true')
     parser.add_argument("--simple_templates", default=False, dest='simple_templates', action='store_true')
+    parser.set_defaults(num_worker_threads=16, bs=32, lr=1e-4)
     args = parser.parse_args()
     ttools.set_logger(args.debug)
     main(args)

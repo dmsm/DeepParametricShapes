@@ -2,7 +2,6 @@ import cairo
 from freetype import *
 import numpy as np
 import torch as th
-from skimage.util.shape import view_as_windows
 from svgpathtools import Line, Path, QuadraticBezier, CubicBezier, paths2svg
 
 from . import templates, utils
@@ -162,9 +161,9 @@ def draw_curves(curves, n_loops, ctx, offset=(0, 0), marked_verts=[]):
 
 def draw_glyph(font, char, ctx, offset=(0, 0), color=(0.6, 0.6, 0.6)):
     try:
-        face = Face('data/ttfs/{}.ttf'.format(font))
+        face = Face('data/fonts/ttfs/{}.ttf'.format(font))
     except:
-        face = Face('data/ttfs/{}.otf'.format(font))
+        face = Face('data/fonts/ttfs/{}.otf'.format(font))
     face.set_char_size(48*64)
     face.load_char(char)
     outline = face.glyph.outline

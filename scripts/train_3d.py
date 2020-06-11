@@ -37,7 +37,8 @@ def main(args):
     model = PrimsModel(output_dim=(11 if args.rounded else 10)*args.n_primitives)
 
     checkpointer = ttools.Checkpointer(args.checkpoint_dir, model)
-    checkpointer.load_latest()
+    extras, meta = checkpointer.load_latest()
+    starting_epoch = extras['epoch'] if extras is not None else None
 
     interface = VectorizerInterface(model, args.lr, args.n_primitives, args.canvas_size, args.w_surface,
                                     args.w_alignment, args.csg, args.rounded, cuda=args.cuda)
@@ -53,8 +54,8 @@ def main(args):
     trainer.add_callback(ttools.callbacks.TensorBoardLoggingCallback(keys=keys, writer=writer,
                                                                      val_writer=val_writer, frequency=5))
     trainer.add_callback(ttools.callbacks.ProgressBarCallback(keys=keys))
-    trainer.add_callback(ttools.callbacks.CheckpointingCallback(checkpointer, max_files=1))
-    trainer.train(dataloader, num_epochs=args.num_epochs, val_dataloader=val_dataloader)
+    trainer.add_callback(ttools.callbacks.CheckpointingCallback(checkpointer, interval=None, max_epochs=2))
+    trainer.train(dataloader, num_epochs=args.num_epochs, val_dataloader=val_dataloader, starting_epoch=starting_epoch)
 
 
 if __name__ == '__main__':
@@ -65,6 +66,7 @@ if __name__ == '__main__':
     parser.add_argument("--n_primitives", type=int, default=16)
     parser.add_argument("--csg", default=False, dest='csg', action='store_true')
     parser.add_argument("--rounded", default=False, dest='rounded', action='store_true')
+    parser.set_defaults(num_worker_threads=16, bs=16, lr=1e-4)
     args = parser.parse_args()
     ttools.set_logger(args.debug)
     main(args)
