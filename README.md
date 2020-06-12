@@ -27,13 +27,11 @@ mkdir -p models/dps_2d
 wget -O models/dps_2d/ckpt.pth https://www.dropbox.com/s/46tp19h6npqhuuh/dps_2d.pth\?dl\=0
 ```
 
-Then, run the following to generate a PDF file with the vectorization for a given input glyph PNG image for a glyph:
+Then, run the following to generate a PDF file with the vectorization for a given input glyph PNG image:
 ```
-python scripts/run_2d.py in.png L out.pdf
+python scripts/run_2d.py demo/P1.png P out.pdf
 ```
-Here, `L` is the letter of the input glyph.
-
-The `demo` directory contains PNGs of the GAN-generated glyphs used for Figure 13 of the paper.
+Make sure to specify the letter of the input glyph (in this case `P`). The `demo` directory contains PNGs of the GAN-generated glyphs used for Figure 13 of the paper.
 
 #### Training
 To prepare the training dataset, first download and extract the font TTF files:
