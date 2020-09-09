@@ -1,6 +1,6 @@
 ## DeepParametricShapes | [Webpage](https://people.csail.mit.edu/smirnov/deep-parametric-shapes/) | [Paper](https://arxiv.org/abs/1904.08921) | [Video](https://youtu.be/v_0UrjbTtHg)
 
-<img src="https://people.csail.mit.edu/smirnov/deep-parametric-shapes/im.png" width="50%" alt="Deep Parametric Shapes" />
+<img src="https://people.csail.mit.edu/smirnov/deep-parametric-shapes/im.png" width="75%" alt="Deep Parametric Shapes" />
 
 **Deep Parametric Shape Predictions using Distance Fields**<br>
 Dmitriy Smirnov, Matthew Fisher, Vladimir G. Kim, Richard Zhang, Justin Solomon<br>
