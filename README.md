@@ -49,6 +49,17 @@ To train a model from scratch, run:
 python scripts/train_2d.py --output models/model_name --data data/fonts
 ```
 
+### 3D: Shape Abstraction
+
+#### Pretrained Models
+Run the following to download pretrained models for airplane and chair shape abstraction:
+```
+mkdir -p models/airplanes
+wget -O models/airplanes/ckpt.pth https://www.dropbox.com/s/k91u1zjdywgqdga/dps_3d_airplanes.pth?dl=0
+mkdir -p models/chairs
+wget -O models/chairs/ckpt.pth https://www.dropbox.com/s/i4l0rrx6rbit0fa/dps_3d_chairs.pth?dl=0
+```
+
 ### BibTeX
 ```
 @inproceedings{smirnov2020dps,
