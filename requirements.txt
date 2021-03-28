@@ -8,7 +8,7 @@ humanfriendly==8.2
 idna==2.9
 imageio==2.8.0
 imageio-ffmpeg==0.4.2
-Jinja2==2.11.2
+Jinja2==2.11.3
 jsonpatch==1.25
 jsonpointer==2.0
 kiwisolver==1.2.0
